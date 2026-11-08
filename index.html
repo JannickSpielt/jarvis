@@ -1017,6 +1017,11 @@
       ui.ollamaNote.textContent = "Läuft komplett auf deinem Mac – kostenlos und privat.";
     } catch {
       ui.ollamaNote.textContent = ollamaHint();
+      if (location.protocol === "https:") {   // one click to the Mac version
+        const a = document.createElement("a");
+        a.href = "http://localhost:4180/"; a.textContent = " → Mac-Version öffnen"; a.target = "_blank"; a.rel = "noopener";
+        ui.ollamaNote.append(a);
+      }
     }
     if (!names.includes(cfg.ollamaModel)) names.unshift(cfg.ollamaModel);
     ui.ollamaModel.replaceChildren(...names.map((n) => new Option(n, n, false, n === cfg.ollamaModel)));
@@ -1193,10 +1198,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.9";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.10";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.10", date: "2026-11-08", items: ["Link „Mac-Version öffnen“, wenn Safari Ollama in der Online-Version blockiert"] },
     { v: "1.9", date: "2026-11-08", items: [
       "Mac-Version unter http://localhost:4180: dort klappt Ollama auch in Safari",
       "Klarer Hinweis, wenn Safari Ollama in der Online-Version blockiert",

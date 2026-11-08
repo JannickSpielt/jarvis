@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jarvis</title>
+<meta name="theme-color" content="#070504">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.4' cy='.35'%3E%3Cstop offset='0' stop-color='%23FFE3C2'/%3E%3Cstop offset='.5' stop-color='%23FF8A3D'/%3E%3Cstop offset='1' stop-color='%23993310'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='26' fill='url(%23g)'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg-center: #1a0f09;
+    --bg-edge: #070504;
+    --core: #ffe3c2;
+    --orange: #ff8a3d;
+    --ember: #e3570f;
+    --text: rgba(255, 245, 235, 0.93);
+    --text-dim: rgba(255, 240, 225, 0.42);
+    --line: rgba(255, 138, 61, 0.18);
+    --line-strong: rgba(255, 138, 61, 0.45);
+    --glass: rgba(255, 255, 255, 0.05);
+    --panel: rgba(24, 16, 11, 0.86);
+    --danger: #ff8c73;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    background: radial-gradient(ellipse 80% 70% at 50% 38%, var(--bg-center), var(--bg-edge) 70%) fixed, var(--bg-edge);
+    color: var(--text);
+    font: 100%/1.5 system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+
+  .app {
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  }
+
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+  .brand {
+    font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.42em;
+    color: var(--orange);
+    margin-right: auto;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 28px; padding: 0 12px;
+    border-radius: 999px;
+    background: var(--glass);
+    font-size: 12px; font-weight: 500;
+    color: rgba(255, 240, 225, 0.72);
+    max-width: 52vw;
+  }
+  .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: #6fd08c; }
+  .dot.remote { background: var(--orange); }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    color: rgba(255, 240, 225, 0.7);
+  }
+  .icon-btn:disabled { opacity: 0.3; cursor: default; }
+  .press { transition: transform 160ms var(--ease-out), opacity 160ms var(--ease-out); }
+  .press:active:not(:disabled) { transform: scale(0.94); transition-duration: 90ms; }
+  @media (hover: hover) and (pointer: fine) {
+    .icon-btn:hover:not(:disabled), .pill:hover { background: rgba(255, 255, 255, 0.08); }
+  }
+
+  /* ---------- stage ---------- */
+  .stage { display: flex; flex-direction: column; align-items: center; min-height: 0; }
+  .orb-wrap { position: relative; width: 100%; flex: 1 1 0; min-height: 120px; max-height: 420px; }
+  .stage > :not(.orb-wrap) { flex: none; }
+  #orb { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+
+  .status {
+    display: flex; align-items: center; gap: 9px;
+    font: 600 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: rgba(255, 138, 61, 0.78);
+    margin: 4px 0 18px;
+  }
+  .status i { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); opacity: 0.5; transition: opacity 180ms ease; }
+  .status[data-busy="true"] i { opacity: 1; }
+  #statusText { transition: opacity 180ms ease; }
+
+  .said {
+    font-size: 13px; color: var(--text-dim);
+    text-align: center; max-width: 520px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    min-height: 0;
+    margin-bottom: 8px;
+  }
+  .reply {
+    width: 100%; max-width: 560px;
+    max-height: 30vh; overflow-y: auto;
+    text-align: center;
+    font-size: 19px; line-height: 1.5; letter-spacing: -0.01em;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    padding: 12px 4px;
+  }
+  .reply::-webkit-scrollbar { display: none; }
+  .reply.fresh { animation: settle 260ms var(--ease-out); }
+  @keyframes settle { from { opacity: 0; filter: blur(3px); transform: translateY(4px); } }
+
+  /* ---------- input ---------- */
+  .bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; }
+  .error {
+    font-size: 12.5px; color: var(--danger); text-align: center; max-width: 520px;
+    opacity: 0; transform: translateY(4px);
+    transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+    min-height: 1em;
+  }
+  .error.show { opacity: 1; transform: none; }
+
+  .bar {
+    width: 100%; max-width: 580px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 7px 7px 18px;
+    border-radius: 999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: box-shadow 200ms ease;
+  }
+  .bar:focus-within, .bar[data-listening="true"] { box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+  #input {
+    flex: 1; min-width: 0;
+    background: none; border: 0; outline: none;
+    color: var(--text); font-size: 16px; /* 16px: no iOS zoom on focus */
+    height: 34px;
+  }
+  #input::placeholder { color: rgba(255, 240, 225, 0.35); }
+  .round {
+    width: 36px; height: 36px; border-radius: 50%; flex: none;
+    display: grid; place-items: center;
+  }
+  #mic { background: rgba(255, 138, 61, 0.13); color: var(--orange); }
+  #mic[aria-pressed="true"] { background: var(--orange); color: #1a0d05; }
+  #send { background: var(--orange); color: #1a0d05; transition: transform 160ms var(--ease-out), background 160ms ease, opacity 160ms ease; }
+  #send:disabled { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.4); cursor: default; }
+  .hint { font-size: 11px; color: rgba(255, 240, 225, 0.28); }
+
+  /* ---------- settings popover (anchored to the pill, top-right) ---------- */
+  .scrim { position: fixed; inset: 0; z-index: 9; }
+  .scrim[hidden] { display: none; }
+  .settings {
+    position: fixed; z-index: 10;
+    top: calc(max(16px, env(safe-area-inset-top)) + 44px);
+    right: max(16px, calc((100vw - 680px) / 2 + 20px));
+    width: min(400px, calc(100vw - 32px));
+    max-height: calc(100dvh - 90px); overflow-y: auto;
+    padding: 18px;
+    border-radius: 18px;
+    background: var(--panel);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    backdrop-filter: blur(30px) saturate(160%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 24px 60px rgba(0, 0, 0, 0.55);
+    transform-origin: top right;
+    transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
+    opacity: 0; transform: scale(0.96) translateY(-4px); visibility: hidden;
+  }
+  .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+  .settings h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .seg {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+    padding: 3px; border-radius: 10px; background: rgba(255, 255, 255, 0.06);
+    margin-bottom: 16px;
+  }
+  .seg button { height: 30px; border-radius: 8px; font-size: 13px; font-weight: 500; color: rgba(255, 240, 225, 0.6); }
+  .seg button[aria-pressed="true"] { background: rgba(255, 138, 61, 0.18); color: var(--text); }
+  label.field { display: block; font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
+  .settings input, .settings select {
+    width: 100%; height: 36px; padding: 0 12px; margin-bottom: 14px;
+    border-radius: 10px; border: 0;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text); font-size: 14px;
+  }
+  .models { display: flex; flex-direction: column; gap: 2px; margin: -6px 0 14px; }
+  .models button {
+    display: flex; align-items: center; gap: 10px; text-align: left;
+    padding: 8px 10px; border-radius: 10px;
+  }
+  .models button[aria-checked="true"] { background: rgba(255, 138, 61, 0.12); }
+  .models b { font-weight: 500; font-size: 13.5px; display: block; }
+  .models small { font-size: 11.5px; color: var(--text-dim); }
+  .models .check { margin-left: auto; color: var(--orange); visibility: hidden; }
+  .models button[aria-checked="true"] .check { visibility: visible; }
+  @media (hover: hover) and (pointer: fine) { .models button:hover { background: rgba(255, 255, 255, 0.06); } }
+  .note { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
+  .note a { color: var(--orange); }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-height: 640px) { .reply { font-size: 17px; max-height: 24vh; } .status { margin-bottom: 10px; } }
+  @media (max-height: 520px) { .hint { display: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reply.fresh { animation: fade 200ms ease; }
+    @keyframes fade { from { opacity: 0; } }
+    .settings { transform: none !important; }
+    .press:active:not(:disabled) { transform: none; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .bar, .settings { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .settings { background: #1c130d; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">JARVIS</div>
+    <button class="pill press" id="pill" aria-haspopup="dialog" aria-expanded="false" title="Modell und Anbieter ändern">
+      <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
+    </button>
+    <button class="icon-btn press" id="newChat" title="Neues Gespräch" aria-label="Neues Gespräch" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </button>
+  </header>
+
+  <main class="stage">
+    <div class="orb-wrap">
+      <canvas id="orb" aria-label="Jarvis – klicken zum Sprechen" role="button" tabindex="0"></canvas>
+    </div>
+    <div class="status" id="status" aria-live="polite"><i></i><span id="statusText">Bereit</span></div>
+    <p class="said" id="said"></p>
+    <div class="reply" id="reply" aria-live="polite"></div>
+  </main>
+
+  <footer class="bottom">
+    <p class="error" id="error" role="alert"></p>
+    <form class="bar" id="form" autocomplete="off">
+      <label for="input" class="sr-only">Nachricht an Jarvis</label>
+      <input id="input" placeholder="Frag Jarvis …" enterkeyhint="send">
+      <button type="button" class="round press" id="mic" aria-pressed="false" aria-label="Sprechen" title="Sprechen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Z"/><path d="M18.5 11.5a.9.9 0 1 0-1.8 0 4.7 4.7 0 0 1-9.4 0 .9.9 0 1 0-1.8 0 6.5 6.5 0 0 0 5.6 6.4V20H8.8a.9.9 0 1 0 0 1.8h6.4a.9.9 0 1 0 0-1.8h-2.3v-2.1a6.5 6.5 0 0 0 5.6-6.4Z"/></svg>
+      </button>
+      <button type="submit" class="round press" id="send" aria-label="Senden" title="Senden" disabled>
+        <svg id="sendIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+      </button>
+    </form>
+    <p class="hint" id="hint">Enter senden · Klick auf die Kugel zum Sprechen · Esc stoppt</p>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="settings" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
+  <h2>Einstellungen</h2>
+  <div class="seg" role="group" aria-label="Anbieter">
+    <button type="button" data-provider="ollama" aria-pressed="true">Ollama (lokal)</button>
+    <button type="button" data-provider="openrouter" aria-pressed="false">OpenRouter</button>
+  </div>
+
+  <div id="ollamaPane">
+    <label class="field" for="ollamaModel">Modell</label>
+    <select id="ollamaModel"></select>
+    <p class="note" id="ollamaNote">Läuft komplett auf deinem Mac – kostenlos und privat.</p>
+  </div>
+
+  <div id="routerPane" hidden>
+    <label class="field" for="routerKey">API-Key</label>
+    <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
+    <label class="field" for="routerSearch">Modell</label>
+    <input id="routerSearch" placeholder="Suchen: claude, gpt, gemini …" spellcheck="false">
+    <div class="models" id="routerModels" role="radiogroup" aria-label="OpenRouter-Modelle"></div>
+    <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
+  </div>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- settings (per-browser convenience; page works without storage) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("jarvis." + k); return v === null ? d : v; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("jarvis." + k, v); } catch {} },
+  };
+  const cfg = {
+    // Ollama only exists on this machine; a hosted copy (GitHub Pages) starts on OpenRouter.
+    provider: store.get("provider", /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "ollama" : "openrouter"),
+    ollamaModel: store.get("ollamaModel", "qwen3.5:4b"),
+    routerModel: store.get("routerModel", "anthropic/claude-sonnet-5.5"),
+    routerKey: store.get("routerKey", ""),
+  };
+  const save = (k, v) => { cfg[k] = v; store.set(k, v); renderPill(); };
+
+  const OLLAMA = "http://127.0.0.1:11434";
+  const ROUTER = "https://openrouter.ai/api/v1";
+
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"), newChat: $("newChat"),
+    canvas: $("orb"), status: $("status"), statusText: $("statusText"),
+    said: $("said"), reply: $("reply"), error: $("error"),
+    form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
+    settings: $("settings"), scrim: $("scrim"),
+    ollamaPane: $("ollamaPane"), ollamaModel: $("ollamaModel"), ollamaNote: $("ollamaNote"),
+    routerPane: $("routerPane"), routerKey: $("routerKey"), routerSearch: $("routerSearch"), routerModels: $("routerModels"),
+  };
+
+  // ---------- conversation state ----------
+  const messages = [];          // {role, content}
+  let state = "idle";           // idle | listening | thinking | speaking
+  let controller = null;
+  let lastTokenAt = 0;
+  let micLevel = 0;
+
+  const firstName = "";         // set a name here if you like
+  const systemPrompt =
+    "Du bist Jarvis, ein persönlicher KI-Assistent" + (firstName ? " von " + firstName : "") + ". " +
+    "Antworte auf Deutsch, außer der Nutzer schreibt in einer anderen Sprache. Sei kurz, freundlich und direkt. " +
+    "Deine Antworten erscheinen als Text unter einer animierten Kugel: verwende kein Markdown, keine Tabellen, " +
+    "keine Überschriften und keine Aufzählungszeichen.";
+  const greeting = "Hallo. Wie kann ich helfen?";
+
+  const STATUS = { idle: "Bereit", listening: "Höre zu", thinking: "Denke nach", speaking: "Antwortet" };
+
+  function setState(s) {
+    state = s;
+    ui.statusText.textContent = STATUS[s];
+    ui.status.dataset.busy = String(s !== "idle");
+    const busy = s === "thinking" || s === "speaking";
+    ui.sendIcon.innerHTML = busy
+      ? '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'
+      : '<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>';
+    ui.send.setAttribute("aria-label", busy ? "Antwort stoppen" : "Senden");
+    ui.send.title = busy ? "Antwort stoppen" : "Senden";
+    updateSend();
+  }
+  const isBusy = () => state === "thinking" || state === "speaking";
+  function updateSend() { ui.send.disabled = !isBusy() && ui.input.value.trim() === ""; }
+
+  function showError(msg) {
+    ui.error.textContent = msg || "";
+    ui.error.classList.toggle("show", !!msg);
+  }
+
+  function renderReply(text, fresh) {
+    ui.reply.textContent = text;
+    if (fresh) { ui.reply.classList.remove("fresh"); void ui.reply.offsetWidth; ui.reply.classList.add("fresh"); }
+    ui.reply.scrollTop = ui.reply.scrollHeight;
+  }
+
+  function renderPill() {
+    const remote = cfg.provider === "openrouter";
+    ui.pillDot.classList.toggle("remote", remote);
+    ui.pillText.textContent = remote ? cfg.routerModel.split("/").pop() : cfg.ollamaModel;
+  }
+
+  // ---------- providers (both stream text chunks) ----------
+  async function* readLines(res) {
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) { yield buf.slice(0, i).replace(/\r$/, ""); buf = buf.slice(i + 1); }
+    }
+    if (buf) yield buf;
+  }
+
+  async function* streamOllama(history, signal) {
+    const body = (think) => JSON.stringify({
+      model: cfg.ollamaModel, stream: true,
+      messages: [{ role: "system", content: systemPrompt }, ...history],
+      ...(think === undefined ? {} : { think }),
+    });
+    let res;
+    try {
+      res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false), signal });
+      if (!res.ok) {
+        const t = await res.text();
+        if (/think/i.test(t)) res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(undefined), signal });
+        else throw new Error(errMsg(t) || "Ollama-Fehler " + res.status);
+      }
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      if (e instanceof TypeError) throw new Error("Ollama ist nicht erreichbar. Läuft die Ollama-App?");
+      throw e;
+    }
+    if (!res.ok) throw new Error(errMsg(await res.text()) || "Ollama-Fehler " + res.status);
+    for await (const line of readLines(res)) {
+      if (!line.trim()) continue;
+      let obj; try { obj = JSON.parse(line); } catch { continue; }
+      if (obj.error) throw new Error(obj.error);
+      const c = obj.message && obj.message.content;
+      if (c) yield c;
+      if (obj.done) break;
+    }
+  }
+
+  async function* streamRouter(history, signal) {
+    if (!cfg.routerKey) throw new Error("Kein OpenRouter-API-Key hinterlegt. Trag ihn oben rechts in den Einstellungen ein.");
+    let res;
+    try {
+      res = await fetch(ROUTER + "/chat/completions", {
+        method: "POST", signal,
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.routerKey, "X-Title": "Jarvis" },
+        body: JSON.stringify({ model: cfg.routerModel, stream: true, messages: [{ role: "system", content: systemPrompt }, ...history] }),
+      });
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      throw new Error("OpenRouter ist nicht erreichbar. Bist du online?");
+    }
+    if (!res.ok) {
+      const t = await res.text();
+      if (res.status === 401) throw new Error("Der OpenRouter-API-Key ist ungültig.");
+      if (res.status === 402) throw new Error("Dein OpenRouter-Guthaben ist aufgebraucht.");
+      throw new Error("OpenRouter: " + (errMsg(t) || "Fehler " + res.status));
+    }
+    for await (const line of readLines(res)) {
+      if (!line.startsWith("data:")) continue;          // ": OPENROUTER PROCESSING" keep-alives
+      const payload = line.slice(5).trim();
+      if (payload === "[DONE]") break;
+      let obj; try { obj = JSON.parse(payload); } catch { continue; }
+      if (obj.error) throw new Error("OpenRouter: " + (obj.error.message || "Unbekannter Fehler"));
+      const c = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+      if (c) yield c;
+    }
+  }
+
+  function errMsg(text) {
+    try { const j = JSON.parse(text); return typeof j.error === "string" ? j.error : j.error && j.error.message; } catch { return ""; }
+  }
+
+  // ---------- chat ----------
+  async function send(textArg) {
+    const text = (textArg ?? ui.input.value).trim();
+    if (!text || isBusy()) return;
+    ui.input.value = "";
+    showError("");
+    messages.push({ role: "user", content: text });
+    ui.said.textContent = text;
+    ui.newChat.disabled = false;
+    renderReply("…", true);
+    setState("thinking");
+
+    controller = new AbortController();
+    const history = messages.slice();
+    const gen = cfg.provider === "openrouter" ? streamRouter(history, controller.signal) : streamOllama(history, controller.signal);
+    let reply = "";
+    try {
+      for await (const chunk of gen) {
+        if (state === "thinking") { setState("speaking"); reply = ""; }
+        reply += chunk;
+        lastTokenAt = performance.now();
+        renderReply(reply, false);
+      }
+      messages.push({ role: "assistant", content: reply || "…" });
+      if (!reply) renderReply("…", false);
+    } catch (e) {
+      if (e.name === "AbortError") {
+        messages.push({ role: "assistant", content: reply || "…" });
+      } else {
+        messages.pop();                        // drop the failed turn, give the text back
+        ui.input.value = text;
+        ui.said.textContent = messages.length ? lastOf("user") : "";
+        renderReply(lastOf("assistant") || greeting, true);
+        showError(e.message);
+      }
+    } finally {
+      controller = null;
+      setState("idle");
+      if (!matchMedia("(pointer: coarse)").matches) ui.input.focus();
+    }
+  }
+  const lastOf = (role) => { for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === role) return messages[i].content; return ""; };
+  function stop() { if (controller) controller.abort(); }
+
+  ui.form.addEventListener("submit", (e) => { e.preventDefault(); isBusy() ? stop() : send(); });
+  ui.input.addEventListener("input", updateSend);
+  ui.newChat.addEventListener("click", () => {
+    stop(); messages.length = 0;
+    ui.said.textContent = ""; renderReply(greeting, true); showError(""); ui.newChat.disabled = true;
+    ui.input.focus();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (ui.settings.classList.contains("open")) closeSettings();
+    else if (recognizing) stopListening(false);
+    else stop();
+  });
+
+  // ---------- voice input (Web Speech API) + mic level for the orb ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recog = null, recognizing = false, heard = "";
+  let audioCtx = null, analyser = null, micStream = null, levelBuf = null;
+
+  async function startListening() {
+    if (!SR) { showError("Spracheingabe kann dieser Browser nicht. Nimm Chrome, Edge oder Safari."); return; }
+    if (isBusy()) stop();
+    showError("");
+    heard = "";
+    recog = new SR();
+    recog.lang = "de-DE";
+    recog.interimResults = true;
+    recog.continuous = false;
+    recog.onresult = (ev) => {
+      heard = Array.from(ev.results).map((r) => r[0].transcript).join("");
+      ui.input.value = heard;
+      updateSend();
+    };
+    recog.onerror = (ev) => {
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") showError("Mikrofonzugriff wurde nicht erlaubt. Erlaube ihn in den Website-Einstellungen des Browsers.");
+      else if (ev.error === "no-speech") showError("Ich habe nichts gehört.");
+      else if (ev.error !== "aborted") showError("Spracheingabe-Fehler: " + ev.error);
+    };
+    recog.onend = () => {
+      const text = heard.trim();
+      endListeningUI();
+      if (sendOnEnd && text) send(text);
+    };
+    sendOnEnd = true;
+    try { recog.start(); } catch { return; }
+    recognizing = true;
+    ui.mic.setAttribute("aria-pressed", "true");
+    ui.mic.setAttribute("aria-label", "Zuhören beenden");
+    ui.form.dataset.listening = "true";
+    ui.input.placeholder = "Ich höre zu …";
+    setState("listening");
+    startLevel();
+  }
+  let sendOnEnd = true;
+  function stopListening(sendIt = true) { sendOnEnd = sendIt; if (recog) recog.stop(); }
+  function endListeningUI() {
+    recognizing = false;
+    ui.mic.setAttribute("aria-pressed", "false");
+    ui.mic.setAttribute("aria-label", "Sprechen");
+    ui.form.dataset.listening = "false";
+    ui.input.placeholder = "Frag Jarvis …";
+    if (state === "listening") setState("idle");
+    stopLevel();
+  }
+  async function startLevel() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!recognizing) { stopLevel(); return; }
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      levelBuf = new Float32Array(analyser.fftSize);
+      audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    } catch { /* level is decoration only */ }
+  }
+  function stopLevel() {
+    if (micStream) micStream.getTracks().forEach((t) => t.stop());
+    if (audioCtx) audioCtx.close().catch(() => {});
+    micStream = audioCtx = analyser = null; micLevel = 0;
+  }
+  function readLevel() {
+    if (!analyser) return 0;
+    analyser.getFloatTimeDomainData(levelBuf);
+    let s = 0; for (let i = 0; i < levelBuf.length; i++) s += levelBuf[i] * levelBuf[i];
+    return Math.min(1, Math.sqrt(s / levelBuf.length) * 9);
+  }
+  const toggleMic = () => (recognizing ? stopListening(true) : startListening());
+  ui.mic.addEventListener("click", toggleMic);
+  ui.canvas.addEventListener("click", toggleMic);
+  ui.canvas.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleMic(); } });
+
+  // ---------- settings popover ----------
+  let routerList = [];
+  const PICKS = ["anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
+                 "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
+
+  function openSettings() {
+    ui.settings.classList.add("open");
+    ui.scrim.hidden = false;
+    ui.pill.setAttribute("aria-expanded", "true");
+    renderProvider();
+    loadOllamaModels();
+    if (!routerList.length) loadRouterModels();
+  }
+  function closeSettings() {
+    ui.settings.classList.remove("open");
+    ui.scrim.hidden = true;
+    ui.pill.setAttribute("aria-expanded", "false");
+  }
+  ui.pill.addEventListener("click", () => (ui.settings.classList.contains("open") ? closeSettings() : openSettings()));
+  ui.scrim.addEventListener("click", closeSettings);
+
+  document.querySelectorAll(".seg button").forEach((b) =>
+    b.addEventListener("click", () => { save("provider", b.dataset.provider); renderProvider(); }));
+  function renderProvider() {
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.provider === cfg.provider)));
+    ui.ollamaPane.hidden = cfg.provider !== "ollama";
+    ui.routerPane.hidden = cfg.provider !== "openrouter";
+    ui.routerKey.value = cfg.routerKey;
+    renderRouterModels();
+  }
+
+  async function loadOllamaModels() {
+    let names = [];
+    try {
+      const r = await fetch(OLLAMA + "/api/tags");
+      names = ((await r.json()).models || []).map((m) => m.name).sort();
+      ui.ollamaNote.textContent = "Läuft komplett auf deinem Mac – kostenlos und privat.";
+    } catch {
+      ui.ollamaNote.textContent = "Ollama ist nicht erreichbar. Starte die Ollama-App.";
+    }
+    if (!names.includes(cfg.ollamaModel)) names.unshift(cfg.ollamaModel);
+    ui.ollamaModel.replaceChildren(...names.map((n) => new Option(n, n, false, n === cfg.ollamaModel)));
+  }
+  ui.ollamaModel.addEventListener("change", () => save("ollamaModel", ui.ollamaModel.value));
+
+  async function loadRouterModels() {
+    try {
+      const r = await fetch(ROUTER + "/models");
+      routerList = ((await r.json()).data || [])
+        .filter((m) => !m.id.endsWith(":batch") && (!m.architecture || !m.architecture.output_modalities || m.architecture.output_modalities.includes("text")))
+        .map((m) => ({ id: m.id, name: m.name || m.id }));
+    } catch { routerList = []; }
+    renderRouterModels();
+  }
+  function renderRouterModels() {
+    const q = ui.routerSearch.value.trim().toLowerCase();
+    let list = q
+      ? routerList.filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)).slice(0, 8)
+      : PICKS.map((id) => routerList.find((m) => m.id === id) || { id, name: id });
+    if (!q && !list.some((m) => m.id === cfg.routerModel)) list = [{ id: cfg.routerModel, name: cfg.routerModel }, ...list];
+    ui.routerModels.replaceChildren(...list.map((m) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", String(m.id === cfg.routerModel));
+      const t = document.createElement("span");
+      const name = document.createElement("b"); name.textContent = m.name;
+      const id = document.createElement("small"); id.textContent = m.id;
+      t.append(name, id);
+      const check = document.createElement("span"); check.className = "check"; check.textContent = "✓";
+      b.append(t, check);
+      b.addEventListener("click", () => { save("routerModel", m.id); renderRouterModels(); });
+      return b;
+    }));
+    if (q && !list.length) {
+      const p = document.createElement("p"); p.className = "note"; p.textContent = routerList.length ? "Kein Modell gefunden." : "Modellliste lädt …";
+      ui.routerModels.replaceChildren(p);
+    }
+  }
+  ui.routerSearch.addEventListener("input", renderRouterModels);
+  ui.routerKey.addEventListener("input", () => save("routerKey", ui.routerKey.value.trim()));
+
+  // ---------- the orb ----------
+  const ctx = ui.canvas.getContext("2d");
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = ui.canvas.getBoundingClientRect();
+    W = r.width; H = r.height;
+    ui.canvas.width = Math.round(W * dpr); ui.canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  new ResizeObserver(resize).observe(ui.canvas);
+
+  // Critically damped springs: state changes glide instead of jumping.
+  const spring = (response) => ({ x: 0, v: 0, w: (2 * Math.PI) / response });
+  const stepSpring = (s, target, dt) => { const a = s.w * s.w * (target - s.x) - 2 * s.w * s.v; s.v += a * dt; s.x += s.v * dt; return s.x; };
+  const energyS = spring(0.45), speedS = spring(0.6), levelS = spring(0.12);
+  energyS.x = 0.15; speedS.x = 0.7;
+  let phase = 0, last = performance.now();
+
+  function blob(cx, cy, r, t, wobble, seed) {
+    const n = 120, s = seed * 1.7;
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const d = Math.sin(a * 3 + t * 1.1 + s) * 0.5 + Math.sin(a * 5 - t * 1.7 + s * 2) * 0.3 + Math.sin(a * 2 + t * 0.6 - s) * 0.4;
+      const rr = r * (1 + wobble * d);
+      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  }
+  const rgba = (rgb, a) => `rgba(${rgb},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+  const C = { core: "255,227,194", orange: "255,138,61", ember: "227,87,15", deep: "153,51,16" };
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const calm = reduceMotion.matches;
+    const t = now / 1000;
+
+    if (recognizing) micLevel = readLevel();
+    const level = stepSpring(levelS, micLevel, dt);
+    const pulse = Math.max(0, 1 - (now - lastTokenAt) / 350);
+    const target = {
+      idle:      [0.15 + 0.06 * Math.sin(t * 1.1), 0.7],
+      listening: [0.25 + level * 1.1, 1.5],
+      thinking:  [0.45 + 0.12 * Math.sin(t * 4), 2.8],
+      speaking:  [0.32 + pulse * 0.35, 1.3],
+    }[state];
+    const energy = stepSpring(energyS, target[0], dt);
+    const speed = stepSpring(speedS, calm ? 0.25 : target[1], dt);
+    phase += dt * speed;
+
+    ctx.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2;
+    const base = Math.min(W, H) * 0.27;
+    const r = base * (1 + (calm ? 0 : 0.035 * Math.sin(t * 1.3)) + energy * 0.12);
+    const p = phase;
+
+    // glow
+    for (let i = 0; i < 3; i++) {
+      const gr = r * (1.7 + i * 0.55 + energy * 0.5);
+      const a = (0.2 + energy * 0.12) / (i + 1);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
+      g.addColorStop(0, rgba(C.orange, a)); g.addColorStop(0.55, rgba(C.ember, a * 0.3)); g.addColorStop(1, rgba(C.ember, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, gr, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // rings
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.rotate(p * 0.25);
+    ctx.setLineDash([2, 9]); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.orange, 0.28);
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.42, 0, Math.PI * 2); ctx.stroke();
+    ctx.rotate(-p * 0.85);
+    ctx.setLineDash([38, 16, 4, 16]); ctx.lineWidth = 1.5; ctx.lineCap = "round"; ctx.strokeStyle = rgba(C.orange, 0.14 + energy * 0.1);
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.72, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore(); ctx.setLineDash([]);
+
+    // particles
+    for (let i = 0; i < 42; i++) {
+      const dir = i % 2 ? -1 : 1;
+      const a = i * 2.39996 + p * 0.12 * dir;
+      const d = r * (1.3 + 0.45 * (0.5 + 0.5 * Math.sin(t * 0.4 + i * 1.3))) + energy * r * 0.35;
+      const s = 1 + (Math.sin(i * 7.1) + 1) * 0.8;
+      ctx.fillStyle = rgba(C.core, 0.15 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2 + i)));
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const wobble = calm ? 0.02 : 0.03 + energy * 0.09;
+
+    // bloom under the body
+    ctx.save(); ctx.filter = `blur(${(r * 0.22).toFixed(1)}px)`;
+    blob(cx, cy, r, p, wobble, 0); ctx.fillStyle = rgba(C.orange, 0.85); ctx.fill();
+    ctx.restore();
+
+    // body
+    const bg = ctx.createRadialGradient(cx - r * 0.22, cy - r * 0.28, 0, cx - r * 0.22, cy - r * 0.28, r * 1.35);
+    bg.addColorStop(0, rgba(C.core, 1)); bg.addColorStop(0.45, rgba(C.orange, 1)); bg.addColorStop(0.8, rgba(C.ember, 1)); bg.addColorStop(1, rgba(C.deep, 1));
+    blob(cx, cy, r, p, wobble, 0); ctx.fillStyle = bg; ctx.fill();
+
+    // inner swirling light, clipped to the body
+    ctx.save();
+    blob(cx, cy, r, p, wobble, 0); ctx.clip();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.filter = `blur(${(r * 0.09).toFixed(1)}px)`;
+    for (let k = 0; k < 3; k++) {
+      const oa = p * 0.5 + k * 2.1;
+      blob(cx + Math.cos(oa) * r * 0.32, cy + Math.sin(oa * 1.3) * r * 0.28, r * (0.42 + 0.08 * k), p * 1.4 + k * 3, 0.18, k + 1);
+      ctx.fillStyle = rgba(C.core, 0.18 + energy * 0.15); ctx.fill();
+    }
+    ctx.restore();
+
+    // rim
+    blob(cx, cy, r, p, wobble, 0); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.core, 0.25 + pulse * 0.3); ctx.stroke();
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- boot ----------
+  renderPill();
+  renderReply(greeting, false);
+  setState("idle");
+  resize();
+  requestAnimationFrame(frame);
+  if (!matchMedia("(pointer: coarse)").matches) ui.input.focus();
+})();
+</script>
+</body>
+</html>

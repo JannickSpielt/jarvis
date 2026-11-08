@@ -435,10 +435,10 @@
   // Ollama runs only on a computer; phones and tablets (incl. iPads that report "Mac") use OpenRouter.
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
   const cfg = {
-    // Ollama only exists on this machine; a hosted copy (GitHub Pages) starts on OpenRouter.
-    provider: isMobile ? "openrouter" : store.get("provider", /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "ollama" : "openrouter"),
+    // Default everywhere: OpenRouter with openrouter/auto. On a computer Ollama can be picked in the settings.
+    provider: isMobile ? "openrouter" : store.get("provider", "openrouter"),
     ollamaModel: store.get("ollamaModel", "qwen3.5:4b"),
-    routerModel: store.get("routerModel", "anthropic/claude-sonnet-5.5"),
+    routerModel: store.get("routerModel", "openrouter/auto"),
     routerKey: store.get("routerKey", ""),
     speak: store.get("speak", "1") === "1",
     wake: store.get("wake", "0") === "1",
@@ -944,7 +944,7 @@
 
   // ---------- settings popover ----------
   let routerList = [];
-  const PICKS = ["anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
+  const PICKS = ["openrouter/auto", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
                  "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
 
   function openSettings() {
@@ -1040,7 +1040,19 @@
 
   // Critically damped springs: state changes glide instead of jumping.
   const spring = (response) => ({ x: 0, v: 0, w: (2 * Math.PI) / response });
-  const stepSpring = (s, target, dt) => { const a = s.w * s.w * (target - s.x) - 2 * s.w * s.v; s.v += a * dt; s.x += s.v * dt; return s.x; };
+  function stepSpring(s, target, dt) {
+    // Sub-steps of at most 4 ms keep the integration stable when the browser drops to a low frame rate
+    // (iOS does that while the microphone is on; one big step made the orb explode off-screen).
+    for (let left = dt; left > 0; left -= 0.004) {
+      const h = Math.min(0.004, left);
+      s.v += (s.w * s.w * (target - s.x) - 2 * s.w * s.v) * h;
+      s.x += s.v * h;
+    }
+    if (!Number.isFinite(s.x)) { s.x = target; s.v = 0; }
+    return s.x;
+  }
+  // self-check: 20 frames at 10 fps must still settle near the target
+  { const t = spring(0.12); for (let i = 0; i < 20; i++) stepSpring(t, 1, 0.1); console.assert(Math.abs(t.x - 1) < 0.01, "Jarvis: spring unstable"); }
   const energyS = spring(0.45), speedS = spring(0.6), levelS = spring(0.12);
   energyS.x = 0.15; speedS.x = 0.7;
   let phase = 0, last = performance.now();
@@ -1145,6 +1157,21 @@
 
     requestAnimationFrame(frame);
   }
+
+  // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
+  const VERSION = "2026-11-08.2";   // bump on every release
+  async function checkUpdate() {
+    try {
+      const html = await (await fetch(location.pathname, { cache: "reload" })).text();
+      const online = (html.match(/const VERSION = "([^"]+)"/) || [])[1];
+      if (!online || online === VERSION || isBusy()) return;
+      if (sessionStorage.getItem("jarvis.reloadedFor") === online) return;   // never loop
+      sessionStorage.setItem("jarvis.reloadedFor", online);
+      location.reload();
+    } catch { /* offline or storage blocked: keep running */ }
+  }
+  checkUpdate();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
 
   // ---------- boot ----------
   if (isMobile) document.querySelector(".seg").hidden = true;

@@ -292,7 +292,7 @@
   .top .brand { margin-right: 0; }
   .menu-btn { display: none; margin-left: -6px; }
   @media (min-width: 900px) {
-    .top .brand, #newChat { display: none; }
+    .top .brand { display: none; }
     .settings { right: max(16px, calc((100vw - 264px - 680px) / 2 + 20px)); }
   }
   @media (max-width: 899px) {
@@ -377,9 +377,6 @@
     <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
     <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-    </button>
-    <button class="icon-btn press" id="newChat" title="Neues Gespräch" aria-label="Neues Gespräch" disabled>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
     </button>
   </header>
 
@@ -476,7 +473,7 @@
 
   const $ = (id) => document.getElementById(id);
   const ui = {
-    pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"), newChat: $("newChat"),
+    pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"),
     wakeBtn: $("wakeBtn"), speakBtn: $("speakBtn"),
     side: $("side"), menuBtn: $("menuBtn"), sideNew: $("sideNew"), reloadBtn: $("reloadBtn"), chatList: $("chatList"),
     newsBtn: $("newsBtn"), newsBadge: $("newsBadge"), versionLabel: $("versionLabel"), news: $("news"), newsList: $("newsList"),
@@ -626,7 +623,6 @@
     showError("");
     messages.push({ role: "user", content: text });
     ui.said.textContent = text;
-    ui.newChat.disabled = false;
     renderReply("…", true);
     setState("thinking");
 
@@ -668,7 +664,6 @@
 
   ui.form.addEventListener("submit", (e) => { e.preventDefault(); isBusy() ? stop() : send(); });
   ui.input.addEventListener("input", updateSend);
-  ui.newChat.addEventListener("click", () => { newChat(); ui.input.focus(); });
 
   // ---------- history (kept in this browser) ----------
   let chats = [];
@@ -691,7 +686,6 @@
   function showConversation() {
     ui.said.textContent = lastOf("user");
     renderReply(lastOf("assistant") || greeting, true);
-    ui.newChat.disabled = !messages.length;
     showError("");
   }
   function openChat(id) {
@@ -1194,10 +1188,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.7";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.8";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.8", date: "2026-11-08", items: ["Stift oben entfernt – neue Gespräche startest du über „Neues Gespräch“ in der Liste"] },
     { v: "1.7", date: "2026-11-08", items: [
       "Obere Leiste in der installierten iPhone-App wieder scharf",
       "Neu: „Was ist neu“ – dieser Changelog",

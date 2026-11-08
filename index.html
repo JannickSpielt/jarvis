@@ -216,6 +216,20 @@
   .models .check { margin-left: auto; color: var(--orange); visibility: hidden; }
   .models button[aria-checked="true"] .check { visibility: visible; }
   @media (hover: hover) and (pointer: fine) { .models button:hover { background: rgba(255, 255, 255, 0.06); } }
+  .row { display: flex; gap: 8px; }
+  .row select { flex: 1; min-width: 0; }
+  .test { height: 36px; padding: 0 12px; border-radius: 10px; flex: none; font-size: 13px; font-weight: 500; background: rgba(255, 138, 61, 0.14); color: var(--orange); }
+  .chat-row { display: flex; align-items: center; border-radius: 10px; }
+  .chat-row[aria-current="true"] { background: rgba(255, 138, 61, 0.12); }
+  .chat-row .open { display: block; flex: 1; min-width: 0; text-align: left; padding: 8px 10px; }
+  .chat-row .open b { display: block; font-weight: 500; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-row .open small { font-size: 11.5px; color: var(--text-dim); }
+  .chat-row .del { width: 30px; height: 30px; border-radius: 8px; flex: none; color: var(--text-dim); font-size: 16px; }
+  @media (hover: hover) and (pointer: fine) {
+    .chat-row:hover { background: rgba(255, 255, 255, 0.06); }
+    .chat-row .del:hover { color: var(--danger); }
+  }
+  @media (max-width: 440px) { .brand { display: none; } .pill { max-width: 30vw; } }
   .note { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
   .note a { color: var(--orange); }
 
@@ -246,6 +260,9 @@
     <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
     <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <button class="icon-btn press" id="historyBtn" title="Verlauf" aria-label="Verlauf" aria-haspopup="dialog" aria-expanded="false">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
     </button>
     <button class="icon-btn press" id="newChat" title="Neues Gespräch" aria-label="Neues Gespräch" disabled>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -299,6 +316,18 @@
     <div class="models" id="routerModels" role="radiogroup" aria-label="OpenRouter-Modelle"></div>
     <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
   </div>
+
+  <label class="field" for="voice" style="margin-top:18px">Stimme</label>
+  <div class="row">
+    <select id="voice"></select>
+    <button type="button" class="test press" id="voiceTest">Probehören</button>
+  </div>
+  <p class="note">Mehr und bessere Stimmen: Systemeinstellungen › Bedienungshilfen › Gesprochene Inhalte › Systemstimme › Stimmen verwalten.</p>
+</section>
+
+<section class="settings" id="history" role="dialog" aria-label="Verlauf" aria-modal="false">
+  <h2>Verlauf</h2>
+  <div class="models" id="chatList"></div>
 </section>
 
 <script>
@@ -318,6 +347,7 @@
     routerKey: store.get("routerKey", ""),
     speak: store.get("speak", "1") === "1",
     wake: store.get("wake", "0") === "1",
+    voice: store.get("voice", ""),
   };
   const save = (k, v) => { cfg[k] = v; store.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v); renderPill(); };
 
@@ -328,6 +358,8 @@
   const ui = {
     pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"), newChat: $("newChat"),
     wakeBtn: $("wakeBtn"), speakBtn: $("speakBtn"),
+    historyBtn: $("historyBtn"), history: $("history"), chatList: $("chatList"),
+    voice: $("voice"), voiceTest: $("voiceTest"),
     canvas: $("orb"), status: $("status"), statusText: $("statusText"),
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
@@ -491,10 +523,12 @@
       }
       feedSpeech("", true);
       messages.push({ role: "assistant", content: reply || "…" });
+      saveChat();
       if (!reply) renderReply("…", false);
     } catch (e) {
       if (e.name === "AbortError") {
         messages.push({ role: "assistant", content: reply || "…" });
+        saveChat();
       } else {
         messages.pop();                        // drop the failed turn, give the text back
         ui.input.value = text;
@@ -513,14 +547,87 @@
 
   ui.form.addEventListener("submit", (e) => { e.preventDefault(); isBusy() ? stop() : send(); });
   ui.input.addEventListener("input", updateSend);
-  ui.newChat.addEventListener("click", () => {
-    stop(); messages.length = 0;
-    ui.said.textContent = ""; renderReply(greeting, true); showError(""); ui.newChat.disabled = true;
-    ui.input.focus();
-  });
+  ui.newChat.addEventListener("click", () => { newChat(); ui.input.focus(); });
+
+  // ---------- history (kept in this browser) ----------
+  let chats = [];
+  try { chats = JSON.parse(store.get("chats", "[]")) || []; } catch { chats = []; }
+  let chatId = store.get("chatId", "");
+  const persistChats = () => store.set("chats", JSON.stringify(chats));
+
+  function saveChat() {
+    if (!messages.length) return;
+    let c = chats.find((x) => x.id === chatId);
+    if (!c) { chatId = Date.now().toString(36); store.set("chatId", chatId); c = { id: chatId }; chats.unshift(c); }
+    c.title = (messages.find((m) => m.role === "user") || {}).content || "Gespräch";
+    c.updated = Date.now();
+    c.messages = messages.slice();
+    chats.sort((a, b) => b.updated - a.updated);
+    chats = chats.slice(0, 50);   // shortcut: only the last 50 chats are kept, raise if you need more
+    persistChats();
+  }
+  function showConversation() {
+    ui.said.textContent = lastOf("user");
+    renderReply(lastOf("assistant") || greeting, true);
+    ui.newChat.disabled = !messages.length;
+    showError("");
+  }
+  function openChat(id) {
+    const c = chats.find((x) => x.id === id);
+    if (!c) return;
+    stop();
+    chatId = id; store.set("chatId", id);
+    messages.length = 0; messages.push(...c.messages);
+    showConversation();
+  }
+  function newChat() {
+    stop();
+    messages.length = 0; chatId = ""; store.set("chatId", "");
+    showConversation();
+  }
+  function renderChats() {
+    if (!chats.length) {
+      const p = document.createElement("p"); p.className = "note"; p.textContent = "Noch keine Gespräche.";
+      ui.chatList.replaceChildren(p); return;
+    }
+    const fmt = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    ui.chatList.replaceChildren(...chats.map((c) => {
+      const row = document.createElement("div"); row.className = "chat-row";
+      row.setAttribute("aria-current", String(c.id === chatId));
+      const open = document.createElement("button"); open.type = "button"; open.className = "open";
+      const b = document.createElement("b"); b.textContent = c.title;
+      const sm = document.createElement("small"); const n = Math.ceil(c.messages.length / 2);
+      sm.textContent = fmt.format(c.updated) + " · " + n + (n === 1 ? " Frage" : " Fragen");
+      open.append(b, sm);
+      open.addEventListener("click", () => { openChat(c.id); closeHistory(); });
+      const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "×";
+      del.setAttribute("aria-label", "Gespräch löschen: " + c.title);
+      del.addEventListener("click", () => {
+        chats = chats.filter((x) => x.id !== c.id); persistChats();
+        if (c.id === chatId) newChat();
+        renderChats();
+      });
+      row.append(open, del);
+      return row;
+    }));
+  }
+  function openHistory() {
+    closeSettings();
+    renderChats();
+    ui.history.classList.add("open"); ui.scrim.hidden = false;
+    ui.historyBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeHistory() {
+    ui.history.classList.remove("open");
+    if (!ui.settings.classList.contains("open")) ui.scrim.hidden = true;
+    ui.historyBtn.setAttribute("aria-expanded", "false");
+  }
+  ui.historyBtn.addEventListener("click", () => (ui.history.classList.contains("open") ? closeHistory() : openHistory()));
+
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (ui.settings.classList.contains("open")) closeSettings();
+    if (ui.history.classList.contains("open")) closeHistory();
+    else if (ui.settings.classList.contains("open")) closeSettings();
     else if (listening()) stopListening();
     else stop();
   });
@@ -528,15 +635,29 @@
   // ---------- spoken replies (on-device voices) ----------
   const canSpeak = "speechSynthesis" in window;
   let speakBuf = "";
-  function germanVoice() {
-    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("de"));
+  const germanVoices = () => (canSpeak ? speechSynthesis.getVoices() : []).filter((v) => v.lang.toLowerCase().startsWith("de"));
+  function pickVoice() {
+    const all = canSpeak ? speechSynthesis.getVoices() : [];
+    const chosen = all.find((v) => v.voiceURI === cfg.voice);
+    if (chosen) return chosen;
+    const vs = germanVoices();
     return vs.find((v) => /premium|enhanced|natural|neural/i.test(v.name)) || vs.find((v) => v.localService) || vs[0] || null;
   }
-  function speakChunk(text) {
-    if (!cfg.speak || !canSpeak || !text.trim()) return;
+  function renderVoices() {
+    const vs = germanVoices();
+    ui.voice.replaceChildren(new Option("Automatisch (beste deutsche Stimme)", ""),
+      ...vs.map((v) => new Option(v.name + (v.localService ? "" : " · online"), v.voiceURI, false, v.voiceURI === cfg.voice)));
+    ui.voice.value = vs.some((v) => v.voiceURI === cfg.voice) ? cfg.voice : "";
+  }
+  if (canSpeak) speechSynthesis.addEventListener("voiceschanged", renderVoices);
+  ui.voice.addEventListener("change", () => save("voice", ui.voice.value));
+  ui.voiceTest.addEventListener("click", () => { stopSpeaking(); speakChunk("Hallo, ich bin Jarvis. So klinge ich.", true); });
+
+  function speakChunk(text, force) {
+    if ((!cfg.speak && !force) || !canSpeak || !text.trim()) return;
     const u = new SpeechSynthesisUtterance(text.trim());
     u.lang = "de-DE";
-    const v = germanVoice(); if (v) u.voice = v;
+    const v = pickVoice(); if (v) u.voice = v;
     u.rate = 1.05;
     u.onboundary = () => { lastTokenAt = performance.now(); };   // orb pulses per spoken word
     speechSynthesis.speak(u);
@@ -698,10 +819,12 @@
                  "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
 
   function openSettings() {
+    closeHistory();
     ui.settings.classList.add("open");
     ui.scrim.hidden = false;
     ui.pill.setAttribute("aria-expanded", "true");
     renderProvider();
+    renderVoices();
     loadOllamaModels();
     if (!routerList.length) loadRouterModels();
   }
@@ -711,7 +834,7 @@
     ui.pill.setAttribute("aria-expanded", "false");
   }
   ui.pill.addEventListener("click", () => (ui.settings.classList.contains("open") ? closeSettings() : openSettings()));
-  ui.scrim.addEventListener("click", closeSettings);
+  ui.scrim.addEventListener("click", () => { closeSettings(); closeHistory(); });
 
   document.querySelectorAll(".seg button").forEach((b) =>
     b.addEventListener("click", () => { save("provider", b.dataset.provider); renderProvider(); }));
@@ -897,7 +1020,7 @@
   renderPill();
   renderSpeak();
   if (cfg.wake && SR) setWake(true);
-  renderReply(greeting, false);
+  if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else renderReply(greeting, false);
   setState("idle");
   resize();
   requestAnimationFrame(frame);

@@ -230,6 +230,32 @@
     .chat-row .del:hover { color: var(--danger); }
   }
   @media (max-width: 440px) { .brand { display: none; } .pill { max-width: 30vw; } }
+  .lock {
+    position: fixed; inset: 0; z-index: 20;
+    display: grid; place-items: center; padding: 20px;
+    background: rgba(7, 5, 4, 0.7);
+    -webkit-backdrop-filter: blur(26px) saturate(140%);
+    backdrop-filter: blur(26px) saturate(140%);
+  }
+  .lock[hidden] { display: none; }
+  .lock-card { width: min(340px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+  .lock-card img { border-radius: 22%; box-shadow: 0 12px 40px rgba(255, 138, 61, 0.25); }
+  .lock-card h1 { font: 700 13px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.42em; color: var(--orange); margin-top: 6px; }
+  .lock-card p { font-size: 14px; color: var(--text-dim); }
+  .lock-card input {
+    width: 100%; height: 44px; padding: 0 16px; border: 0; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.07); color: var(--text); font-size: 16px; text-align: center;
+  }
+  .lock-card button[type="submit"] { width: 100%; height: 44px; border-radius: 12px; background: var(--orange); color: #1a0d05; font-weight: 600; }
+  .lock-card button:disabled { opacity: 0.6; cursor: default; }
+  .lock-card .error { min-height: 1.2em; }
+  .vault { margin: 4px 0 14px; }
+  .vault summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--orange); padding: 6px 0; }
+  .vault[open] summary { margin-bottom: 8px; }
+  .vault textarea {
+    width: 100%; height: 92px; margin: 10px 0 8px; padding: 10px; border: 0; border-radius: 10px; resize: none;
+    background: rgba(255, 255, 255, 0.07); color: var(--text); font: 11px/1.4 ui-monospace, Menlo, monospace;
+  }
   .note { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
   .note a { color: var(--orange); }
 
@@ -309,8 +335,23 @@
   </div>
 
   <div id="routerPane" hidden>
-    <label class="field" for="routerKey">API-Key</label>
-    <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
+    <div id="keyField">
+      <label class="field" for="routerKey">API-Key</label>
+      <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
+      <details class="vault" id="vaultSetup">
+        <summary>Mit Passwort schützen</summary>
+        <p class="note">Verschlüsselt deinen Key mit einem Passwort, direkt in diesem Browser. Danach braucht jedes Gerät nur noch das Passwort – ohne Passwort kann niemand Jarvis mit deinem Key nutzen.</p>
+        <input id="vaultPw" type="password" autocomplete="new-password" placeholder="Neues Passwort (mind. 12 Zeichen)" style="margin-top:10px">
+        <input id="vaultPw2" type="password" autocomplete="new-password" placeholder="Passwort wiederholen">
+        <button type="button" class="test press" id="vaultMake">Tresor-Code erzeugen</button>
+        <textarea id="vaultOut" readonly hidden aria-label="Tresor-Code"></textarea>
+        <p class="note" id="vaultMsg"></p>
+      </details>
+    </div>
+    <div id="vaultOn" hidden style="margin-bottom:14px">
+      <p class="note" style="margin-bottom:8px">Dein Key ist mit deinem Passwort-Tresor geschützt.</p>
+      <button type="button" class="test press" id="logout">Auf diesem Gerät abmelden</button>
+    </div>
     <label class="field" for="routerSearch">Modell</label>
     <input id="routerSearch" placeholder="Suchen: claude, gpt, gemini …" spellcheck="false">
     <div class="models" id="routerModels" role="radiogroup" aria-label="OpenRouter-Modelle"></div>
@@ -329,6 +370,19 @@
   <h2>Verlauf</h2>
   <div class="models" id="chatList"></div>
 </section>
+
+<div class="lock" id="lock" hidden>
+  <form class="lock-card" id="lockForm">
+    <img src="icon.svg" alt="" width="76" height="76">
+    <h1>JARVIS</h1>
+    <p>Gib dein Passwort ein, um Jarvis zu entsperren.</p>
+    <input type="text" autocomplete="username" value="jarvis" hidden>
+    <label for="lockPw" class="sr-only">Passwort</label>
+    <input id="lockPw" type="password" autocomplete="current-password" placeholder="Passwort" required>
+    <button type="submit" class="press" id="lockBtn">Entsperren</button>
+    <p class="error" id="lockErr" role="alert"></p>
+  </form>
+</div>
 
 <script>
 (() => {
@@ -365,6 +419,9 @@
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), scrim: $("scrim"),
     ollamaPane: $("ollamaPane"), ollamaModel: $("ollamaModel"), ollamaNote: $("ollamaNote"),
+    keyField: $("keyField"), vaultOn: $("vaultOn"), vaultSetup: $("vaultSetup"), logout: $("logout"),
+    vaultPw: $("vaultPw"), vaultPw2: $("vaultPw2"), vaultMake: $("vaultMake"), vaultOut: $("vaultOut"), vaultMsg: $("vaultMsg"),
+    lock: $("lock"), lockForm: $("lockForm"), lockPw: $("lockPw"), lockBtn: $("lockBtn"), lockErr: $("lockErr"),
     routerPane: $("routerPane"), routerKey: $("routerKey"), routerSearch: $("routerSearch"), routerModels: $("routerModels"),
   };
 
@@ -843,6 +900,8 @@
     ui.ollamaPane.hidden = cfg.provider !== "ollama";
     ui.routerPane.hidden = cfg.provider !== "openrouter";
     ui.routerKey.value = cfg.routerKey;
+    ui.keyField.hidden = !!vault;
+    ui.vaultOn.hidden = !vault;
     renderRouterModels();
   }
 
@@ -1016,15 +1075,79 @@
     requestAnimationFrame(frame);
   }
 
+  // ---------- password vault: the OpenRouter key, encrypted with your password (AES-GCM, PBKDF2) ----------
+  let vault = null;
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+  async function deriveKey(pw, salt, iter) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: iter }, base,
+      { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  async function sealVault(secret, pw) {
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12)), iter = 600000;
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await deriveKey(pw, salt, iter), new TextEncoder().encode(secret));
+    return { v: 1, kdf: "PBKDF2-SHA256", iter, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  }
+  async function openVault(v, pw) {
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(v.iv) }, await deriveKey(pw, unb64(v.salt), v.iter), unb64(v.ct));
+    return new TextDecoder().decode(pt);
+  }
+
+  ui.vaultMake.addEventListener("click", async () => {
+    const key = ui.routerKey.value.trim(), pw = ui.vaultPw.value;
+    ui.vaultOut.hidden = true;
+    if (!key) return void (ui.vaultMsg.textContent = "Trag zuerst oben deinen OpenRouter-Key ein.");
+    if (pw.length < 12) return void (ui.vaultMsg.textContent = "Das Passwort braucht mindestens 12 Zeichen – am besten 4 bis 5 zufällige Wörter.");
+    if (pw !== ui.vaultPw2.value) return void (ui.vaultMsg.textContent = "Die beiden Passwörter sind nicht gleich.");
+    ui.vaultMake.disabled = true; ui.vaultMsg.textContent = "Verschlüssele …";
+    try {
+      const code = JSON.stringify(await sealVault(key, pw));
+      if ((await openVault(JSON.parse(code), pw)) !== key) throw new Error("check");   // self-check: round trip
+      ui.vaultOut.value = code; ui.vaultOut.hidden = false; ui.vaultOut.select();
+      ui.vaultPw.value = ui.vaultPw2.value = "";
+      ui.vaultMsg.textContent = "Fertig. Kopier diesen Code und schick ihn an Claude – er enthält deinen Key nur verschlüsselt. Merk dir dein Passwort gut, ohne es lässt sich der Key nicht wiederherstellen.";
+    } catch { ui.vaultMsg.textContent = "Verschlüsseln hat nicht geklappt. Versuch es bitte noch einmal."; }
+    ui.vaultMake.disabled = false;
+  });
+  ui.logout.addEventListener("click", () => { save("routerKey", ""); location.reload(); });
+
+  ui.lockForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    ui.lockBtn.disabled = true; ui.lockErr.textContent = ""; ui.lockErr.classList.remove("show");
+    try {
+      save("routerKey", (await openVault(vault, ui.lockPw.value)).trim());
+      ui.lockPw.value = "";
+      ui.lock.hidden = true;
+      unlocked();
+    } catch {
+      ui.lockErr.textContent = "Falsches Passwort."; ui.lockErr.classList.add("show");
+      ui.lockPw.select();
+    }
+    ui.lockBtn.disabled = false;
+  });
+
+  function unlocked() {
+    if (cfg.wake && SR) setWake(true);
+    if (!matchMedia("(pointer: coarse)").matches) ui.input.focus();
+  }
+
   // ---------- boot ----------
   renderPill();
   renderSpeak();
-  if (cfg.wake && SR) setWake(true);
+  if (!window.crypto || !crypto.subtle) ui.vaultSetup.hidden = true;
+  fetch("vault.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)
+    .then((v) => {
+      vault = v && v.ct ? v : null;
+      if (vault && !cfg.routerKey) { ui.lock.hidden = false; ui.lockPw.focus(); }
+      else unlocked();
+    });
   if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else renderReply(greeting, false);
   setState("idle");
   resize();
   requestAnimationFrame(frame);
-  if (!matchMedia("(pointer: coarse)").matches) ui.input.focus();
 })();
 </script>
 </body>

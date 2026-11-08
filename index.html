@@ -26,12 +26,13 @@
     --panel: rgba(24, 16, 11, 0.86);
     --danger: #ff8c73;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
     color-scheme: dark;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; overscroll-behavior: none; }
 
   body {
     background: radial-gradient(ellipse 80% 70% at 50% 38%, var(--bg-center), var(--bg-edge) 70%) fixed, var(--bg-edge);
@@ -173,6 +174,7 @@
   /* ---------- settings popover (anchored to the pill, top-right) ---------- */
   .scrim { position: fixed; inset: 0; z-index: 9; }
   .scrim[hidden] { display: none; }
+  .scrim.dim { background: rgba(0, 0, 0, 0.4); }
   .settings {
     position: fixed; z-index: 10;
     top: calc(max(16px, env(safe-area-inset-top)) + 44px);
@@ -190,6 +192,7 @@
     opacity: 0; transform: scale(0.96) translateY(-4px); visibility: hidden;
   }
   .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+  .settings:not(.open) { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .settings h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 14px; }
   .seg {
     display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
@@ -222,15 +225,82 @@
   .test { height: 36px; padding: 0 12px; border-radius: 10px; flex: none; font-size: 13px; font-weight: 500; background: rgba(255, 138, 61, 0.14); color: var(--orange); }
   .chat-row { display: flex; align-items: center; border-radius: 10px; }
   .chat-row[aria-current="true"] { background: rgba(255, 138, 61, 0.12); }
-  .chat-row .open { display: block; flex: 1; min-width: 0; text-align: left; padding: 8px 10px; }
-  .chat-row .open b { display: block; font-weight: 500; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chat-row .open small { font-size: 11.5px; color: var(--text-dim); }
-  .chat-row .del { width: 30px; height: 30px; border-radius: 8px; flex: none; color: var(--text-dim); font-size: 16px; }
+  .chat-row .open {
+    display: block; flex: 1; min-width: 0; text-align: left; padding: 8px 10px;
+    font-size: 13.5px; color: rgba(255, 240, 225, 0.8);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-row[aria-current="true"] .open { color: var(--text); }
+  .chat-row .del { width: 30px; height: 30px; border-radius: 8px; flex: none; color: var(--text-dim); font-size: 16px; opacity: 0; }
+  .chat-row[aria-current="true"] .del, .chat-row .del:focus-visible { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) { .chat-row:hover .del { opacity: 1; } }
+
+  /* ---------- conversation sidebar (always on desktop, drawer on phone/tablet) ---------- */
+  .shell { display: flex; height: 100dvh; }
+  .side {
+    width: 264px; flex: none;
+    display: flex; flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.022);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+  .side-top { display: flex; flex-direction: column; gap: 16px; padding: 6px 6px 8px; }
+  .side-new {
+    display: flex; align-items: center; gap: 9px;
+    height: 38px; padding: 0 12px; border-radius: 10px;
+    background: rgba(255, 138, 61, 0.12); color: var(--orange);
+    font-size: 13.5px; font-weight: 500;
+  }
+  .chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; padding: 0 2px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-dim); padding: 16px 10px 6px; }
+  .chat-list .note { padding: 12px 10px; }
+  .side-foot { padding: 10px 2px 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+  .foot-btn {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    height: 36px; padding: 0 10px; border-radius: 10px;
+    font-size: 13px; color: rgba(255, 240, 225, 0.6);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .foot-btn:hover, .side-new:hover { background: rgba(255, 255, 255, 0.06); }
+    .side-new:hover { background: rgba(255, 138, 61, 0.18); }
+  }
+  .grow { flex: 1; }
+  .ptr {
+    position: fixed; z-index: 12; left: 50%; top: max(10px, env(safe-area-inset-top));
+    width: 38px; height: 38px; margin-left: -19px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--panel); color: var(--orange);
+    box-shadow: inset 0 0 0 1px var(--line), 0 8px 24px rgba(0, 0, 0, 0.45);
+    transform: translateY(-64px); opacity: 0; pointer-events: none;
+  }
+  .ptr.ready { background: var(--orange); color: #1a0d05; }
+  .ptr.back { transition: transform 260ms var(--ease-out), opacity 200ms ease; }
+  .top .brand { margin-right: 0; }
+  .menu-btn { display: none; margin-left: -6px; }
+  @media (min-width: 900px) {
+    .top .brand, #newChat { display: none; }
+    .settings { right: max(16px, calc((100vw - 264px - 680px) / 2 + 20px)); }
+  }
+  @media (max-width: 899px) {
+    .side {
+      position: fixed; z-index: 15; inset: 0 auto 0 0;
+      width: min(300px, 86vw);
+      background: var(--panel);
+      -webkit-backdrop-filter: blur(30px) saturate(160%);
+      backdrop-filter: blur(30px) saturate(160%);
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.07), 24px 0 60px rgba(0, 0, 0, 0.5);
+      transform: translateX(-100%); visibility: hidden;
+      transition: transform 260ms var(--ease-drawer), visibility 0s linear 260ms;
+    }
+    .side.open { transform: none; visibility: visible; transition: transform 300ms var(--ease-drawer); }
+    .side:not(.open) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .menu-btn { display: grid; }
+  }
   @media (hover: hover) and (pointer: fine) {
     .chat-row:hover { background: rgba(255, 255, 255, 0.06); }
     .chat-row .del:hover { color: var(--danger); }
   }
-  @media (max-width: 440px) { .brand { display: none; } .pill { max-width: 30vw; } }
+  @media (max-width: 440px) { .top .brand { display: none; } .pill { max-width: 30vw; } }
   .note { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
   .note a { color: var(--orange); }
 
@@ -239,6 +309,10 @@
   @media (max-height: 640px) { .reply { font-size: 17px; max-height: 24vh; } .status { margin-bottom: 10px; } }
   @media (max-height: 520px) { .hint { display: none; } }
 
+  @media (prefers-reduced-motion: reduce) and (max-width: 899px) {
+    .side { transform: none; opacity: 0; transition: opacity 200ms ease, visibility 0s linear 200ms; }
+    .side.open { opacity: 1; transition: opacity 200ms ease; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .reply.fresh { animation: fade 200ms ease; }
     @keyframes fade { from { opacity: 0; } }
@@ -252,18 +326,37 @@
 </style>
 </head>
 <body>
+<div class="shell">
+<aside class="side" id="side" aria-label="Gespräche">
+  <div class="side-top">
+    <div class="brand">JARVIS</div>
+    <button type="button" class="side-new press" id="sideNew">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      Neues Gespräch
+    </button>
+  </div>
+  <nav class="chat-list" id="chatList" aria-label="Frühere Gespräche"></nav>
+  <div class="side-foot">
+    <button type="button" class="foot-btn press" id="reloadBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      App neu laden
+    </button>
+  </div>
+</aside>
+
 <div class="app">
   <header class="top">
+    <button class="icon-btn press menu-btn" id="menuBtn" aria-label="Gespräche" title="Gespräche" aria-expanded="false" aria-controls="side">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+    </button>
     <div class="brand">JARVIS</div>
+    <span class="grow"></span>
     <button class="pill press" id="pill" aria-haspopup="dialog" aria-expanded="false" title="Modell und Anbieter ändern">
       <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
     </button>
     <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
     <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-    </button>
-    <button class="icon-btn press" id="historyBtn" title="Verlauf" aria-label="Verlauf" aria-haspopup="dialog" aria-expanded="false">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
     </button>
     <button class="icon-btn press" id="newChat" title="Neues Gespräch" aria-label="Neues Gespräch" disabled>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -294,7 +387,11 @@
     <p class="hint" id="hint">Enter senden · Klick auf die Kugel zum Sprechen · Esc stoppt</p>
   </footer>
 </div>
+</div>
 
+<div class="ptr" id="ptr" aria-hidden="true">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+</div>
 <div class="scrim" id="scrim" hidden></div>
 <section class="settings" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
   <h2>Einstellungen</h2>
@@ -324,11 +421,6 @@
     <button type="button" class="test press" id="voiceTest">Probehören</button>
   </div>
   <p class="note">Mehr und bessere Stimmen: Systemeinstellungen › Bedienungshilfen › Gesprochene Inhalte › Systemstimme › Stimmen verwalten.</p>
-</section>
-
-<section class="settings" id="history" role="dialog" aria-label="Verlauf" aria-modal="false">
-  <h2>Verlauf</h2>
-  <div class="models" id="chatList"></div>
 </section>
 
 <script>
@@ -361,7 +453,7 @@
   const ui = {
     pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"), newChat: $("newChat"),
     wakeBtn: $("wakeBtn"), speakBtn: $("speakBtn"),
-    historyBtn: $("historyBtn"), history: $("history"), chatList: $("chatList"),
+    side: $("side"), menuBtn: $("menuBtn"), sideNew: $("sideNew"), reloadBtn: $("reloadBtn"), chatList: $("chatList"),
     voice: $("voice"), voiceTest: $("voiceTest"),
     canvas: $("orb"), status: $("status"), statusText: $("statusText"),
     said: $("said"), reply: $("reply"), error: $("error"),
@@ -568,6 +660,7 @@
     chats.sort((a, b) => b.updated - a.updated);
     chats = chats.slice(0, 50);   // shortcut: only the last 50 chats are kept, raise if you need more
     persistChats();
+    renderChats();
   }
   function showConversation() {
     ui.said.textContent = lastOf("user");
@@ -582,54 +675,87 @@
     chatId = id; store.set("chatId", id);
     messages.length = 0; messages.push(...c.messages);
     showConversation();
+    renderChats();
   }
   function newChat() {
     stop();
     messages.length = 0; chatId = ""; store.set("chatId", "");
     showConversation();
+    renderChats();
   }
   function renderChats() {
     if (!chats.length) {
       const p = document.createElement("p"); p.className = "note"; p.textContent = "Noch keine Gespräche.";
       ui.chatList.replaceChildren(p); return;
     }
-    const fmt = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-    ui.chatList.replaceChildren(...chats.map((c) => {
+    const day = 864e5, today = new Date().setHours(0, 0, 0, 0);
+    const group = (t) => (t >= today ? "Heute" : t >= today - day ? "Gestern" : t >= today - 7 * day ? "Letzte 7 Tage"
+      : t >= today - 30 * day ? "Letzte 30 Tage" : "Älter");
+    const out = [];
+    let last = "";
+    for (const c of chats) {
+      const g = group(c.updated);
+      if (g !== last) { const h = document.createElement("div"); h.className = "group"; h.textContent = g; out.push(h); last = g; }
       const row = document.createElement("div"); row.className = "chat-row";
       row.setAttribute("aria-current", String(c.id === chatId));
       const open = document.createElement("button"); open.type = "button"; open.className = "open";
-      const b = document.createElement("b"); b.textContent = c.title;
-      const sm = document.createElement("small"); const n = Math.ceil(c.messages.length / 2);
-      sm.textContent = fmt.format(c.updated) + " · " + n + (n === 1 ? " Frage" : " Fragen");
-      open.append(b, sm);
-      open.addEventListener("click", () => { openChat(c.id); closeHistory(); });
+      open.textContent = c.title; open.title = c.title;
+      open.addEventListener("click", () => { openChat(c.id); closeSide(); });
       const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "×";
       del.setAttribute("aria-label", "Gespräch löschen: " + c.title);
       del.addEventListener("click", () => {
         chats = chats.filter((x) => x.id !== c.id); persistChats();
-        if (c.id === chatId) newChat();
-        renderChats();
+        if (c.id === chatId) newChat(); else renderChats();
       });
       row.append(open, del);
-      return row;
-    }));
+      out.push(row);
+    }
+    ui.chatList.replaceChildren(...out);
   }
-  function openHistory() {
+  function openSide() {
     closeSettings();
-    renderChats();
-    ui.history.classList.add("open"); ui.scrim.hidden = false;
-    ui.historyBtn.setAttribute("aria-expanded", "true");
+    ui.side.classList.add("open"); ui.scrim.hidden = false; ui.scrim.classList.add("dim");
+    ui.menuBtn.setAttribute("aria-expanded", "true");
   }
-  function closeHistory() {
-    ui.history.classList.remove("open");
+  function closeSide() {
+    if (!ui.side.classList.contains("open")) return;
+    ui.side.classList.remove("open"); ui.scrim.classList.remove("dim");
     if (!ui.settings.classList.contains("open")) ui.scrim.hidden = true;
-    ui.historyBtn.setAttribute("aria-expanded", "false");
+    ui.menuBtn.setAttribute("aria-expanded", "false");
   }
-  ui.historyBtn.addEventListener("click", () => (ui.history.classList.contains("open") ? closeHistory() : openHistory()));
+  ui.menuBtn.addEventListener("click", openSide);
+  ui.sideNew.addEventListener("click", () => { newChat(); closeSide(); if (!matchMedia("(pointer: coarse)").matches) ui.input.focus(); });
+  ui.reloadBtn.addEventListener("click", () => location.reload());
+
+  // Pull down to reload on phone/tablet (an installed web app has no reload button).
+  if (isMobile) {
+    const ptr = $("ptr"), READY = 70;
+    let y0 = null, pull = 0;
+    document.addEventListener("touchstart", (e) => {
+      const t = e.target;
+      y0 = e.touches.length === 1 && !t.closest(".side, .settings, .bar") && !(t.closest(".reply") && ui.reply.scrollTop > 0)
+        ? e.touches[0].clientY : null;
+      pull = 0; ptr.classList.remove("back");
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (y0 === null) return;
+      const dy = Math.max(0, e.touches[0].clientY - y0);
+      pull = (140 * dy) / (140 + dy);                    // rubber band: follows the finger, then resists
+      ptr.style.transform = `translateY(${pull - 54}px) rotate(${pull * 3}deg)`;
+      ptr.style.opacity = String(Math.min(1, pull / 36));
+      ptr.classList.toggle("ready", pull > READY);
+    }, { passive: true });
+    document.addEventListener("touchend", () => {
+      if (y0 === null) return;
+      y0 = null;
+      if (pull > READY) { location.reload(); return; }
+      ptr.classList.add("back"); ptr.style.transform = ""; ptr.style.opacity = "";
+    });
+  }
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (ui.history.classList.contains("open")) closeHistory();
+    if (ui.side.classList.contains("open")) closeSide();
     else if (ui.settings.classList.contains("open")) closeSettings();
     else if (listening()) stopListening();
     else stop();
@@ -822,7 +948,7 @@
                  "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
 
   function openSettings() {
-    closeHistory();
+    closeSide();
     ui.settings.classList.add("open");
     ui.scrim.hidden = false;
     ui.pill.setAttribute("aria-expanded", "true");
@@ -837,7 +963,7 @@
     ui.pill.setAttribute("aria-expanded", "false");
   }
   ui.pill.addEventListener("click", () => (ui.settings.classList.contains("open") ? closeSettings() : openSettings()));
-  ui.scrim.addEventListener("click", () => { closeSettings(); closeHistory(); });
+  ui.scrim.addEventListener("click", () => { closeSettings(); closeSide(); });
 
   document.querySelectorAll(".seg button").forEach((b) =>
     b.addEventListener("click", () => { save("provider", b.dataset.provider); renderProvider(); }));
@@ -991,10 +1117,10 @@
 
     const wobble = calm ? 0.02 : 0.03 + energy * 0.09;
 
-    // bloom under the body
-    ctx.save(); ctx.filter = `blur(${(r * 0.22).toFixed(1)}px)`;
-    blob(cx, cy, r, p, wobble, 0); ctx.fillStyle = rgba(C.orange, 0.85); ctx.fill();
-    ctx.restore();
+    // bloom under the body (gradient, not ctx.filter: Safari ignores canvas filters)
+    const bloom = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.5);
+    bloom.addColorStop(0, rgba(C.orange, 0.7)); bloom.addColorStop(1, rgba(C.orange, 0));
+    ctx.fillStyle = bloom; ctx.beginPath(); ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2); ctx.fill();
 
     // body
     const bg = ctx.createRadialGradient(cx - r * 0.22, cy - r * 0.28, 0, cx - r * 0.22, cy - r * 0.28, r * 1.35);
@@ -1005,11 +1131,12 @@
     ctx.save();
     blob(cx, cy, r, p, wobble, 0); ctx.clip();
     ctx.globalCompositeOperation = "lighter";
-    ctx.filter = `blur(${(r * 0.09).toFixed(1)}px)`;
     for (let k = 0; k < 3; k++) {
       const oa = p * 0.5 + k * 2.1;
-      blob(cx + Math.cos(oa) * r * 0.32, cy + Math.sin(oa * 1.3) * r * 0.28, r * (0.42 + 0.08 * k), p * 1.4 + k * 3, 0.18, k + 1);
-      ctx.fillStyle = rgba(C.core, 0.18 + energy * 0.15); ctx.fill();
+      const lx = cx + Math.cos(oa) * r * 0.32, ly = cy + Math.sin(oa * 1.3) * r * 0.28, lr = r * (0.55 + 0.1 * k);
+      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
+      g.addColorStop(0, rgba(C.core, 0.32 + energy * 0.2)); g.addColorStop(0.5, rgba(C.core, 0.12 + energy * 0.08)); g.addColorStop(1, rgba(C.core, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
 
@@ -1024,7 +1151,7 @@
   renderPill();
   renderSpeak();
   if (cfg.wake && SR) setWake(true);
-  if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else renderReply(greeting, false);
+  if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else { renderReply(greeting, false); renderChats(); }
   setState("idle");
   resize();
   requestAnimationFrame(frame);

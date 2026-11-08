@@ -1139,7 +1139,8 @@
 
     // glow
     for (let i = 0; i < 3; i++) {
-      const gr = r * (1.7 + i * 0.55 + energy * 0.5);
+      // never larger than the canvas: the glow fades to zero before an edge instead of being cut off there
+      const gr = Math.min(r * (1.7 + i * 0.55 + energy * 0.5), Math.min(W, H) / 2);
       const a = (0.2 + energy * 0.12) / (i + 1);
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
       g.addColorStop(0, rgba(C.orange, a)); g.addColorStop(0.55, rgba(C.ember, a * 0.3)); g.addColorStop(1, rgba(C.ember, 0));
@@ -1198,10 +1199,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.10";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.11";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.11", date: "2026-11-08", items: ["Der Lichtschein der Kugel läuft weich aus statt an einer geraden Kante zu enden"] },
     { v: "1.10", date: "2026-11-08", items: ["Link „Mac-Version öffnen“, wenn Safari Ollama in der Online-Version blockiert"] },
     { v: "1.9", date: "2026-11-08", items: [
       "Mac-Version unter http://localhost:4180: dort klappt Ollama auch in Safari",

@@ -148,9 +148,7 @@
     display: flex; align-items: center; gap: 8px;
     padding: 7px 7px 7px 18px;
     border-radius: 999px;
-    background: var(--glass);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
+    background: rgba(255, 255, 255, 0.05);   /* no backdrop blur: only dark background behind it, and Safari flickers with it next to the animation */
     box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     transition: box-shadow 200ms ease;
   }
@@ -334,7 +332,7 @@
     .press:active:not(:disabled) { transform: none; }
   }
   @media (prefers-reduced-transparency: reduce) {
-    .bar, .settings { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .settings { backdrop-filter: none; -webkit-backdrop-filter: none; }
     .settings { background: #1c130d; }
   }
 </style>
@@ -1199,10 +1197,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.11";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.12";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.12", date: "2026-11-08", items: ["Eingabefeld ohne Glas-Effekt, damit es in Safari nicht mehr flackert"] },
     { v: "1.11", date: "2026-11-08", items: ["Der Lichtschein der Kugel läuft weich aus statt an einer geraden Kante zu enden"] },
     { v: "1.10", date: "2026-11-08", items: ["Link „Mac-Version öffnen“, wenn Safari Ollama in der Online-Version blockiert"] },
     { v: "1.9", date: "2026-11-08", items: [

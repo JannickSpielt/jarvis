@@ -36,17 +36,24 @@ Die Kugel zeigt dabei, was gerade passiert: Sie atmet ruhig, reagiert beim Zuhö
 - **Mac:** in Safari *Ablage › Zum Dock hinzufügen*
 - **Chrome:** *⋮ › Streamen, speichern und teilen › Seite als App installieren*
 
-## Lokal mit Ollama
+## Am Mac mit Ollama
 
-Auf einem Computer mit [Ollama](https://ollama.com) läuft Jarvis komplett offline:
+Safari lässt die Online-Version nicht auf [Ollama](https://ollama.com) zugreifen. Dafür gibt es die Mac-Version: ein winziger Hintergrund-Dienst, der Jarvis unter `http://localhost:4180` bereitstellt – immer aktuell von GitHub, offline mit der zuletzt geladenen Kopie.
+
+**Einrichten** (einmal im Terminal):
 
 ```bash
-git clone https://github.com/JannickSpielt/jarvis.git
-cd jarvis
-python3 -m http.server 4173 --bind 127.0.0.1
+curl -fsSL https://jannickspielt.github.io/jarvis/mac/install.sh | bash
 ```
 
-Dann [localhost:4173](http://localhost:4173) öffnen und in den Einstellungen *Ollama (lokal)* wählen. Auf Handy und Tablet steht nur OpenRouter zur Wahl, weil Ollama dort nicht läuft.
+Danach öffnet sich Jarvis in Safari. Über *Ablage › Zum Dock hinzufügen* wird daraus die Mac-App, in den Einstellungen *Ollama (lokal)* wählen. Auf Handy und Tablet steht nur OpenRouter zur Wahl, weil Ollama dort nicht läuft.
+
+**Entfernen:**
+
+```bash
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.jannick.jarvis-local.plist
+rm -rf ~/Library/LaunchAgents/com.jannick.jarvis-local.plist "$HOME/Library/Application Support/Jarvis"
+```
 
 ## Datenschutz
 

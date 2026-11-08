@@ -550,6 +550,11 @@
     if (buf) yield buf;
   }
 
+  // Safari blocks an https page (GitHub Pages) from reaching Ollama on this machine; the Mac version on localhost works.
+  const ollamaHint = () => location.protocol === "https:"
+    ? "Von der Online-Version aus blockiert Safari den Zugriff auf Ollama. Nutze am Mac die lokale Version: http://localhost:4180 (Einrichtung in der Anleitung auf GitHub)."
+    : "Ollama ist nicht erreichbar. Läuft die Ollama-App?";
+
   async function* streamOllama(history, signal) {
     const body = (think) => JSON.stringify({
       model: cfg.ollamaModel, stream: true,
@@ -566,7 +571,7 @@
       }
     } catch (e) {
       if (e.name === "AbortError") throw e;
-      if (e instanceof TypeError) throw new Error("Ollama ist nicht erreichbar. Läuft die Ollama-App?");
+      if (e instanceof TypeError) throw new Error(ollamaHint());
       throw e;
     }
     if (!res.ok) throw new Error(errMsg(await res.text()) || "Ollama-Fehler " + res.status);
@@ -1011,7 +1016,7 @@
       names = ((await r.json()).models || []).map((m) => m.name).sort();
       ui.ollamaNote.textContent = "Läuft komplett auf deinem Mac – kostenlos und privat.";
     } catch {
-      ui.ollamaNote.textContent = "Ollama ist nicht erreichbar. Starte die Ollama-App.";
+      ui.ollamaNote.textContent = ollamaHint();
     }
     if (!names.includes(cfg.ollamaModel)) names.unshift(cfg.ollamaModel);
     ui.ollamaModel.replaceChildren(...names.map((n) => new Option(n, n, false, n === cfg.ollamaModel)));
@@ -1188,10 +1193,14 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.8";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.9";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.9", date: "2026-11-08", items: [
+      "Mac-Version unter http://localhost:4180: dort klappt Ollama auch in Safari",
+      "Klarer Hinweis, wenn Safari Ollama in der Online-Version blockiert",
+    ] },
     { v: "1.8", date: "2026-11-08", items: ["Stift oben entfernt – neue Gespräche startest du über „Neues Gespräch“ in der Liste"] },
     { v: "1.7", date: "2026-11-08", items: [
       "Obere Leiste in der installierten iPhone-App wieder scharf",

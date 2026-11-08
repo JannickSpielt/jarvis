@@ -15,15 +15,13 @@
 
 ## Was Jarvis kann
 
-| | |
-|---|---|
-| 💬 **Chatten** | Antworten erscheinen live, während das Modell schreibt |
-| 🎙️ **Sprechen** | Klick auf die Kugel und frag einfach los, auf Deutsch |
-| 🔊 **Antworten vorlesen** | Satz für Satz, mit einer deutschen Stimme deiner Wahl |
-| 👋 **„Hey Jarvis“** | Auf Wunsch hört Jarvis zu und reagiert auf sein Weckwort |
-| 🕘 **Verlauf** | Gespräche bleiben gespeichert und lassen sich wieder öffnen |
-| 🧠 **Viele Modelle** | Über [OpenRouter](https://openrouter.ai): Claude, GPT, Gemini, DeepSeek und Hunderte mehr |
-| 💻 **Lokal & privat** | Am Computer auch mit [Ollama](https://ollama.com) – kostenlos und ohne Cloud |
+- 💬 **Chatten** – Antworten erscheinen live, während das Modell schreibt
+- 🎙️ **Sprechen** – Klick auf die Kugel und frag einfach los, auf Deutsch
+- 🔊 **Antworten vorlesen** – Satz für Satz, mit einer deutschen Stimme deiner Wahl
+- 👋 **„Hey Jarvis“** – Auf Wunsch hört Jarvis zu und reagiert auf sein Weckwort
+- 🕘 **Verlauf** – Gespräche bleiben gespeichert und lassen sich wieder öffnen
+- 🧠 **Viele Modelle** – Über [OpenRouter](https://openrouter.ai): Claude, GPT, Gemini, DeepSeek und Hunderte mehr
+- 💻 **Lokal & privat** – Am Computer auch mit [Ollama](https://ollama.com) – kostenlos und ohne Cloud
 
 Die Kugel zeigt dabei, was gerade passiert: Sie atmet ruhig, reagiert beim Zuhören auf deine Lautstärke, wirbelt beim Nachdenken und pulsiert beim Antworten.
 

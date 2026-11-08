@@ -10,7 +10,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Jarvis">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   :root {
     --bg-center: #1a0f09;
@@ -1159,7 +1160,7 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "2026-11-08.2";   // bump on every release
+  const VERSION = "2026-11-08.3";   // bump on every release
   async function checkUpdate() {
     try {
       const html = await (await fetch(location.pathname, { cache: "reload" })).text();

@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<body style="font:20px system-ui;padding:40px;background:#111;color:#eee">
+<h3>Ollama-Test</h3><pre id="o">läuft …</pre>
+<script>
+const out = [];
+const show = () => document.getElementById("o").textContent = out.join("\n");
+Promise.all(["http://127.0.0.1:11434", "http://localhost:11434"].map(async (b) => {
+  try { const r = await fetch(b + "/api/tags"); out.push(b + " → OK " + r.status); }
+  catch (e) { out.push(b + " → FEHLER " + e.message); }
+})).then(show);
+</script>

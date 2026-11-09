@@ -222,7 +222,21 @@
   #mic, #imgBtn { background: var(--raised); color: var(--text-2); }
   #imgBtn[aria-pressed="true"] { background: rgba(255, 138, 61, 0.16); color: var(--orange); }
   .pic { display: block; width: fit-content; max-width: min(100%, 440px); margin-bottom: 8px; border-radius: 12px; overflow: hidden; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
-  .pic img { display: block; max-width: 100%; height: auto; }
+  .pic img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
+  .lightbox {
+    position: fixed; inset: 0; z-index: 30;
+    display: grid; place-items: center;
+    padding: max(64px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    background: rgba(8, 7, 6, 0.9);
+    opacity: 0; transition: opacity 200ms var(--ease-out);
+    cursor: zoom-out;
+  }
+  .lightbox[hidden] { display: none; }
+  .lightbox.open { opacity: 1; }
+  .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; transform: scale(0.97); transition: transform 300ms var(--ease-out); cursor: default; }
+  .lightbox.open img { transform: none; }
+  .lb-bar { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; display: flex; gap: 8px; }
+  .lb-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
   #mic[aria-pressed="true"] { background: var(--orange); color: var(--on-orange); }
   #send { background: var(--orange); color: var(--on-orange); transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
   #send:disabled { background: var(--raised); color: var(--text-3); cursor: default; }
@@ -539,6 +553,13 @@
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
 </div>
 <div class="scrim" id="scrim" hidden></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Bild vergrößert" hidden>
+  <img id="lbImg" alt="Von Jarvis erstelltes Bild, vergrößert">
+  <div class="lb-bar">
+    <a class="lb-btn press" id="lbSave" download="jarvis-bild.png" aria-label="Bild speichern" title="Bild speichern"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></a>
+    <button type="button" class="lb-btn press" id="lbClose" aria-label="Schließen" title="Schließen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+</div>
 <section class="settings" id="models" role="dialog" aria-label="Modell" aria-modal="false">
   <h2>Modell</h2>
   <label class="field" for="provSel">Anbieter</label>
@@ -676,6 +697,7 @@
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), scrim: $("scrim"),
+    lightbox: $("lightbox"), lbImg: $("lbImg"), lbSave: $("lbSave"), lbClose: $("lbClose"),
     imgBtn: $("imgBtn"), imgProv: $("imgProv"), imgModel: $("imgModel"),
     provSel: $("provSel"), provNote: $("provNote"), modelSearch: $("modelSearch"), modelList: $("modelList"),
     cloudList: $("cloudList"), localList: $("localList"), localSection: $("localSection"),
@@ -791,6 +813,7 @@
     speak: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
     again: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
     save: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    zoom: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>',
   };
   const svg = (p) => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
   function msgActions(m, isLast) {
@@ -802,6 +825,7 @@
       b.addEventListener("click", () => fn(b)); bar.append(b);
     };
     if (m.images) {
+      btn("Vergrößern", ICON.zoom, async () => { const u = await imageURL(m.images[0]); if (u) openLightbox(u); });
       btn("Bild speichern", ICON.save, async () => {
         for (const id of m.images) {
           const u = await imageURL(id); if (!u) continue;
@@ -1126,6 +1150,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (closeLightbox()) return;
     if (anyPanel()) closePanels();
     else if (ui.side.classList.contains("open")) closeSide();
     else if (listening()) stopListening();
@@ -1546,13 +1571,33 @@
     return imgURLs[id];
   }
   function imageEl(id) {
-    const a = document.createElement("a"); a.className = "pic"; a.target = "_blank"; a.rel = "noopener";
+    const a = document.createElement("a"); a.className = "pic"; a.setAttribute("aria-label", "Bild vergrößern");
+    a.addEventListener("click", (e) => { e.preventDefault(); if (a.href) openLightbox(a.href); });
     const img = document.createElement("img"); img.alt = "Von Jarvis erstelltes Bild"; img.decoding = "async";
     a.append(img);
     const show = (u) => { if (u) { img.src = u; a.href = u; } else a.replaceWith(Object.assign(document.createElement("p"), { className: "note", textContent: "Bild nicht mehr vorhanden." })); };
     if (id in imgURLs) show(imgURLs[id]); else imageURL(id).then(show);
     return a;
   }
+
+  // enlarged view: fills the window, closes on click outside, Esc or ×
+  let lbReturn = null;
+  function openLightbox(url) {
+    lbReturn = document.activeElement;
+    ui.lbImg.src = url; ui.lbSave.href = url;
+    ui.lightbox.hidden = false;
+    requestAnimationFrame(() => ui.lightbox.classList.add("open"));
+    ui.lbClose.focus();
+  }
+  function closeLightbox() {
+    if (ui.lightbox.hidden) return false;
+    ui.lightbox.classList.remove("open");
+    setTimeout(() => { ui.lightbox.hidden = true; }, 200);
+    if (lbReturn) lbReturn.focus();
+    return true;
+  }
+  ui.lbClose.addEventListener("click", closeLightbox);
+  ui.lightbox.addEventListener("click", (e) => { if (e.target === ui.lightbox) closeLightbox(); });
 
   async function imageRouter(p, model, prompt, signal) {
     const res = await post(p, baseOf(p) + "/chat/completions", { "Authorization": "Bearer " + keyOf(p), "X-Title": "Jarvis" },
@@ -1832,10 +1877,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.24";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.25";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.25", date: "2026-11-09", items: ["Bilder lassen sich vergrößern: aufs Bild tippen oder das Vergrößern-Symbol darunter"] },
     { v: "1.24", date: "2026-11-09", items: [
       "Jarvis malt: „Erstelle ein Bild von …“ oder das Bild-Symbol im Eingabefeld",
       "Bilder erscheinen in der Chat-Ansicht – Jarvis wechselt dafür von selbst hinein",

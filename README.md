@@ -36,7 +36,17 @@ Die Kugel zeigt dabei, was gerade passiert: Sie atmet ruhig, reagiert beim Zuhö
 - **Mac:** in Safari *Ablage › Zum Dock hinzufügen*
 - **Chrome:** *⋮ › Streamen, speichern und teilen › Seite als App installieren*
 
-## Am Mac mit Ollama
+## Desktop-App (Mac & Windows)
+
+**[Download: neueste Version](https://github.com/JannickSpielt/jarvis/releases/latest)** – `.dmg` für den Mac, `-setup.exe` für Windows.
+
+Die App lädt beim Start immer die aktuelle Jarvis-Version und erreicht Ollama direkt, ohne Hintergrund-Dienst.
+
+- **Mac:** Die App ist nicht von Apple signiert. Wenn macOS „beschädigt“ oder „kann nicht geöffnet werden“ meldet, einmal im Terminal ausführen:
+  `xattr -dr com.apple.quarantine /Applications/Jarvis.app`
+- **Windows:** Bei der SmartScreen-Warnung *Weitere Informationen › Trotzdem ausführen*. Die Spracheingabe funktioniert in der Windows-App möglicherweise nicht; Vorlesen und Chat schon.
+
+## Am Mac mit Ollama (ohne App)
 
 Safari lässt die Online-Version nicht auf [Ollama](https://ollama.com) zugreifen. Dafür gibt es die Mac-Version: ein winziger Hintergrund-Dienst, der Jarvis unter `http://localhost:4180` bereitstellt – immer aktuell von GitHub, offline mit der zuletzt geladenen Kopie.
 

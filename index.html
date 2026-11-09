@@ -133,6 +133,28 @@
   .reply.fresh { animation: settle 260ms var(--ease-out); }
   @keyframes settle { from { opacity: 0; filter: blur(3px); transform: translateY(4px); } }
 
+  /* ---------- chat mode: small orb on top, the whole conversation below ---------- */
+  .thread { display: none; }
+  body.chat .orb-wrap { flex: none; height: 96px; min-height: 0; }
+  body.chat .status { margin: 0 0 4px; }
+  body.chat .said { display: none; }
+  body.chat .reply { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }   /* stays for screen readers */
+  body.chat .thread {
+    display: flex; flex-direction: column; gap: 18px;
+    flex: 1 1 0; min-height: 0; width: 100%; max-width: 600px;
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: 20px 4px 14px;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 14px), transparent 100%);
+  }
+  .thread::-webkit-scrollbar { display: none; }
+  .msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.55; }
+  .msg.me {
+    align-self: flex-end; max-width: 82%;
+    padding: 9px 15px; border-radius: 20px 20px 6px 20px;
+    background: rgba(255, 138, 61, 0.13); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .msg.ai { align-self: flex-start; padding-left: 14px; box-shadow: inset 2px 0 0 var(--line-strong); }
+
   /* ---------- input ---------- */
   .bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; }
   .error {
@@ -145,9 +167,9 @@
 
   .bar {
     width: 100%; max-width: 580px;
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: flex-end; gap: 8px;
     padding: 7px 7px 7px 18px;
-    border-radius: 999px;
+    border-radius: 25px;
     background: rgba(255, 255, 255, 0.05);   /* no backdrop blur: only dark background behind it, and Safari flickers with it next to the animation */
     box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     transition: box-shadow 200ms ease;
@@ -156,9 +178,13 @@
   #input {
     flex: 1; min-width: 0;
     background: none; border: 0; outline: none;
-    color: var(--text); font-size: 16px; /* 16px: no iOS zoom on focus */
-    height: 34px;
+    color: var(--text); font: inherit; font-size: 16px; /* 16px: no iOS zoom on focus */
+    display: block; resize: none;
+    height: 36px; max-height: 176px;   /* grows with the text up to ~7 lines, then scrolls */
+    padding: 7px 0; line-height: 22px;
+    overflow-y: auto; scrollbar-width: none;
   }
+  #input::-webkit-scrollbar { display: none; }
   #input::placeholder { color: rgba(255, 240, 225, 0.35); }
   .round {
     width: 36px; height: 36px; border-radius: 50%; flex: none;
@@ -373,6 +399,9 @@
       <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
     </button>
     <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
+    <button class="icon-btn press" id="modeBtn" aria-pressed="false" title="Chat-Ansicht" aria-label="Chat-Ansicht">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>
+    </button>
     <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
     </button>
@@ -385,13 +414,14 @@
     <div class="status" id="status" aria-live="polite"><i></i><span id="statusText">Bereit</span></div>
     <p class="said" id="said"></p>
     <div class="reply" id="reply" aria-live="polite"></div>
+    <div class="thread" id="thread" aria-label="Gesprächsverlauf"></div>
   </main>
 
   <footer class="bottom">
     <p class="error" id="error" role="alert"></p>
     <form class="bar" id="form" autocomplete="off">
       <label for="input" class="sr-only">Nachricht an Jarvis</label>
-      <input id="input" placeholder="Frag Jarvis …" enterkeyhint="send">
+      <textarea id="input" rows="1" placeholder="Frag Jarvis …" enterkeyhint="send"></textarea>
       <button type="button" class="round press" id="mic" aria-pressed="false" aria-label="Sprechen" title="Sprechen">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Z"/><path d="M18.5 11.5a.9.9 0 1 0-1.8 0 4.7 4.7 0 0 1-9.4 0 .9.9 0 1 0-1.8 0 6.5 6.5 0 0 0 5.6 6.4V20H8.8a.9.9 0 1 0 0 1.8h6.4a.9.9 0 1 0 0-1.8h-2.3v-2.1a6.5 6.5 0 0 0 5.6-6.4Z"/></svg>
       </button>
@@ -462,17 +492,21 @@
     routerKey: store.get("routerKey", ""),
     speak: store.get("speak", "1") === "1",
     wake: store.get("wake", "0") === "1",
+    mode: store.get("mode", "orb"),     // "orb" | "chat"
     voice: store.get("voice", ""),
   };
   const save = (k, v) => { cfg[k] = v; store.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v); renderPill(); };
 
   const OLLAMA = "http://127.0.0.1:11434";
+  // In the desktop app, Ollama requests go through the app itself (no browser block, no CORS).
+  const tauriHttp = window.__TAURI__ && window.__TAURI__.http;
+  const ofetch = tauriHttp ? tauriHttp.fetch : (...a) => fetch(...a);
   const ROUTER = "https://openrouter.ai/api/v1";
 
   const $ = (id) => document.getElementById(id);
   const ui = {
     pill: $("pill"), pillDot: $("pillDot"), pillText: $("pillText"),
-    wakeBtn: $("wakeBtn"), speakBtn: $("speakBtn"),
+    wakeBtn: $("wakeBtn"), speakBtn: $("speakBtn"), modeBtn: $("modeBtn"), thread: $("thread"),
     side: $("side"), menuBtn: $("menuBtn"), sideNew: $("sideNew"), reloadBtn: $("reloadBtn"), chatList: $("chatList"),
     newsBtn: $("newsBtn"), newsBadge: $("newsBadge"), versionLabel: $("versionLabel"), news: $("news"), newsList: $("newsList"),
     voice: $("voice"), voiceTest: $("voiceTest"),
@@ -515,6 +549,8 @@
   }
   const isBusy = () => state === "thinking" || state === "speaking";
   function updateSend() { ui.send.disabled = !isBusy() && ui.input.value.trim() === ""; }
+  function fitInput() { ui.input.style.height = "auto"; ui.input.style.height = Math.min(ui.input.scrollHeight, 176) + "px"; }
+  function setInput(v) { ui.input.value = v; fitInput(); updateSend(); }
 
   function showError(msg) {
     ui.error.textContent = msg || "";
@@ -525,6 +561,30 @@
     ui.reply.textContent = text;
     if (fresh) { ui.reply.classList.remove("fresh"); void ui.reply.offsetWidth; ui.reply.classList.add("fresh"); }
     ui.reply.scrollTop = ui.reply.scrollHeight;
+    renderThread(text, fresh);
+  }
+
+  // Chat mode: every message of the conversation; `pending` is the reply still streaming in.
+  function renderThread(pending, jump) {
+    if (cfg.mode !== "chat") return;
+    const th = ui.thread;
+    const stick = jump || th.scrollHeight - th.scrollTop - th.clientHeight < 40;
+    const list = messages.length ? messages.slice() : [{ role: "assistant", content: greeting }];
+    if (pending != null && messages.length && messages[messages.length - 1].role === "user") list.push({ role: "assistant", content: pending });
+    th.replaceChildren(...list.map((m) => {
+      const d = document.createElement("div");
+      d.className = "msg " + (m.role === "user" ? "me" : "ai");
+      d.textContent = m.content;
+      return d;
+    }));
+    if (stick) th.scrollTop = th.scrollHeight;
+  }
+  function setMode(m) {
+    save("mode", m);
+    document.body.classList.toggle("chat", m === "chat");
+    ui.modeBtn.setAttribute("aria-pressed", String(m === "chat"));
+    ui.modeBtn.title = m === "chat" ? "Kugel-Ansicht" : "Chat-Ansicht";
+    renderThread(isBusy() ? ui.reply.textContent : null, true);
   }
 
   function renderPill() {
@@ -561,10 +621,10 @@
     });
     let res;
     try {
-      res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false), signal });
+      res = await ofetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false), signal });
       if (!res.ok) {
         const t = await res.text();
-        if (/think/i.test(t)) res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(undefined), signal });
+        if (/think/i.test(t)) res = await ofetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(undefined), signal });
         else throw new Error(errMsg(t) || "Ollama-Fehler " + res.status);
       }
     } catch (e) {
@@ -622,7 +682,7 @@
     const text = (textArg ?? ui.input.value).trim();
     if (!text || isBusy()) return;
     stopSpeaking();
-    ui.input.value = "";
+    setInput("");
     showError("");
     messages.push({ role: "user", content: text });
     ui.said.textContent = text;
@@ -651,7 +711,7 @@
         saveChat();
       } else {
         messages.pop();                        // drop the failed turn, give the text back
-        ui.input.value = text;
+        setInput(text);
         ui.said.textContent = messages.length ? lastOf("user") : "";
         renderReply(lastOf("assistant") || greeting, true);
         showError(e.message);
@@ -666,7 +726,11 @@
   function stop() { if (controller) controller.abort(); stopSpeaking(); }
 
   ui.form.addEventListener("submit", (e) => { e.preventDefault(); isBusy() ? stop() : send(); });
-  ui.input.addEventListener("input", updateSend);
+  ui.input.addEventListener("input", () => { fitInput(); updateSend(); });
+  // Enter sends, Shift+Enter starts a new line (not while an IME is composing)
+  ui.input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ui.form.requestSubmit(); }
+  });
 
   // ---------- history (kept in this browser) ----------
   let chats = [];
@@ -756,7 +820,7 @@
     let y0 = null, pull = 0;
     document.addEventListener("touchstart", (e) => {
       const t = e.target;
-      y0 = e.touches.length === 1 && !t.closest(".side, .settings, .bar") && !(t.closest(".reply") && ui.reply.scrollTop > 0)
+      y0 = e.touches.length === 1 && !t.closest(".side, .settings, .bar") && !(t.closest(".reply") && ui.reply.scrollTop > 0) && !(t.closest(".thread") && ui.thread.scrollTop > 0)
         ? e.touches[0].clientY : null;
       pull = 0; ptr.classList.remove("back");
     }, { passive: true });
@@ -850,7 +914,7 @@
   function listenOnce() {
     stop(); showError(""); heard = "";
     recog = makeRecog(false); recogMode = "once";
-    recog.onresult = (ev) => { heard = Array.from(ev.results).map((r) => r[0].transcript).join(""); ui.input.value = heard; updateSend(); };
+    recog.onresult = (ev) => { heard = Array.from(ev.results).map((r) => r[0].transcript).join(""); setInput(heard); };
     recog.onend = () => { recogMode = ""; recog = null; listeningUI(false); if (heard.trim()) send(heard); };
     try { recog.start(); } catch { recogMode = ""; return; }
     listeningUI(true);
@@ -867,7 +931,7 @@
         const m = text.match(WAKE);
         if (!ev.results[i].isFinal) {
           if (m && !awaiting) beginAwait();
-          if (awaiting) { ui.input.value = stripWake(text); updateSend(); }
+          if (awaiting) setInput(stripWake(text));
           continue;
         }
         if (!m && !awaiting) continue;
@@ -921,7 +985,7 @@
   function renderHint() {
     ui.hint.textContent = isMobile
       ? (cfg.wake ? "Sag „Hey Jarvis“ … oder tippe auf die Kugel" : "Tippe auf die Kugel, um zu sprechen")
-      : (cfg.wake ? "Sag „Hey Jarvis“ … · Enter senden · Esc stoppt" : "Enter senden · Klick auf die Kugel zum Sprechen · Esc stoppt");
+      : (cfg.wake ? "Sag „Hey Jarvis“ … · Enter senden · Esc stoppt" : "Enter senden · Shift+Enter neue Zeile · Klick auf die Kugel zum Sprechen");
   }
 
   function toggleMic() {
@@ -962,6 +1026,7 @@
     if (!SR) { showError("„Hey Jarvis“ braucht Spracherkennung im Browser. Nimm Chrome, Edge oder Safari."); return; }
     setWake(!cfg.wake);
   });
+  ui.modeBtn.addEventListener("click", () => setMode(cfg.mode === "chat" ? "orb" : "chat"));
   ui.speakBtn.addEventListener("click", () => {
     save("speak", !cfg.speak);
     if (!cfg.speak) stopSpeaking();
@@ -1010,7 +1075,7 @@
   async function loadOllamaModels() {
     let names = [];
     try {
-      const r = await fetch(OLLAMA + "/api/tags");
+      const r = await ofetch(OLLAMA + "/api/tags");
       names = ((await r.json()).models || []).map((m) => m.name).sort();
       ui.ollamaNote.textContent = "Läuft komplett auf deinem Mac – kostenlos und privat.";
     } catch {
@@ -1197,10 +1262,15 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.13";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.14";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.14", date: "2026-11-09", items: [
+      "Chat-Ansicht: Sprechblasen-Symbol oben schaltet zwischen Kugel und ganzem Verlauf um",
+      "Das Eingabefeld wächst bei langen Texten mit, Shift+Enter macht eine neue Zeile",
+      "Jarvis als Desktop-App für Mac und Windows, mit Ollama ohne Umweg",
+    ] },
     { v: "1.13", date: "2026-11-08", items: ["Weniger Neuzeichnen neben der Kugel – gegen Flackern in Safari"] },
     { v: "1.12", date: "2026-11-08", items: ["Eingabefeld ohne Glas-Effekt, damit es in Safari nicht mehr flackert"] },
     { v: "1.11", date: "2026-11-08", items: ["Der Lichtschein der Kugel läuft weich aus statt an einer geraden Kante zu enden"] },
@@ -1259,7 +1329,7 @@
   ui.newsBadge.hidden = store.get("seenVersion", "") === VERSION;
   async function checkUpdate() {
     try {
-      const html = await (await fetch(location.pathname, { cache: "reload" })).text();
+      const html = await (await fetch("index.html", { cache: "reload" })).text();
       const online = (html.match(/const VERSION = "([^"]+)"/) || [])[1];
       if (!online || online === VERSION || isBusy()) return;
       if (sessionStorage.getItem("jarvis.reloadedFor") === online) return;   // never loop
@@ -1275,6 +1345,7 @@
   renderHint();
   renderPill();
   renderSpeak();
+  setMode(cfg.mode);
   if (cfg.wake && SR) setWake(true);
   if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else { renderReply(greeting, false); renderChats(); }
   setState("idle");

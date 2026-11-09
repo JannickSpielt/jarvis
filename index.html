@@ -219,7 +219,10 @@
     width: 36px; height: 36px; border-radius: 50%; flex: none;
     display: grid; place-items: center;
   }
-  #mic { background: var(--raised); color: var(--text-2); }
+  #mic, #imgBtn { background: var(--raised); color: var(--text-2); }
+  #imgBtn[aria-pressed="true"] { background: rgba(255, 138, 61, 0.16); color: var(--orange); }
+  .pic { display: block; width: fit-content; max-width: min(100%, 440px); margin-bottom: 8px; border-radius: 12px; overflow: hidden; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
+  .pic img { display: block; max-width: 100%; height: auto; }
   #mic[aria-pressed="true"] { background: var(--orange); color: var(--on-orange); }
   #send { background: var(--orange); color: var(--on-orange); transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
   #send:disabled { background: var(--raised); color: var(--text-3); cursor: default; }
@@ -511,6 +514,9 @@
     <form class="bar" id="form" autocomplete="off">
       <label for="input" class="sr-only">Nachricht an Jarvis</label>
       <textarea id="input" rows="1" placeholder="Frag Jarvis …" enterkeyhint="send"></textarea>
+      <button type="button" class="round press" id="imgBtn" aria-pressed="false" aria-label="Bild erstellen" title="Bild erstellen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L6 21"/></svg>
+      </button>
       <button type="button" class="round press" id="mic" aria-pressed="false" aria-label="Sprechen" title="Sprechen">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
       </button>
@@ -559,6 +565,11 @@
       <p class="note">Laufen kostenlos und privat auf diesem Computer. Jarvis erkennt sie von selbst, sobald sie gestartet sind.</p>
     </div>
   </details>
+
+  <label class="field" style="margin-top:24px" for="imgProv">Bilder</label>
+  <select id="imgProv" aria-label="Anbieter für Bilder"></select>
+  <select id="imgModel" aria-label="Bildmodell"></select>
+  <p class="note" style="margin-top:-8px">Sag zum Beispiel „Erstelle ein Bild von …“ oder tippe auf das Bild-Symbol im Eingabefeld. Bilder erscheinen in der Chat-Ansicht und bleiben in diesem Browser gespeichert.</p>
 
   <label class="field" style="margin-top:24px">Kugel</label>
   <div class="choice" role="radiogroup" aria-label="Aussehen der Kugel">
@@ -665,6 +676,7 @@
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), scrim: $("scrim"),
+    imgBtn: $("imgBtn"), imgProv: $("imgProv"), imgModel: $("imgModel"),
     provSel: $("provSel"), provNote: $("provNote"), modelSearch: $("modelSearch"), modelList: $("modelList"),
     cloudList: $("cloudList"), localList: $("localList"), localSection: $("localSection"),
     updBanner: $("updBanner"), updBannerText: $("updBannerText"), updBtn: $("updBtn"), updNote: $("updNote"), verText: $("verText"),
@@ -765,9 +777,10 @@
       const d = document.createElement("div");
       d.className = "msg " + (m.role === "user" ? "me" : "ai");
       if (m.role === "user") { d.textContent = m.content; return d; }
+      if (m.images) d.append(...m.images.map(imageEl));
       const body = document.createElement("div"); body.className = "md"; body.innerHTML = md(m.content);
       d.append(body);
-      if (i < messages.length) d.append(msgActions(m.content, i === messages.length - 1));   // saved replies only
+      if (i < messages.length) d.append(msgActions(m, i === messages.length - 1));   // saved replies only
       return d;
     }));
     if (stick) th.scrollTop = th.scrollHeight;
@@ -777,27 +790,39 @@
     check: '<path d="M20 6 9 17l-5-5"/>',
     speak: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
     again: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
+    save: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
   };
   const svg = (p) => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
-  function msgActions(text, isLast) {
+  function msgActions(m, isLast) {
+    const text = m.content;
     const bar = document.createElement("div"); bar.className = "acts";
     const btn = (label, icon, fn) => {
       const b = document.createElement("button"); b.type = "button"; b.className = "act press";
       b.title = label; b.setAttribute("aria-label", label); b.innerHTML = svg(icon);
       b.addEventListener("click", () => fn(b)); bar.append(b);
     };
-    btn("Kopieren", ICON.copy, async (b) => {
-      try { await navigator.clipboard.writeText(text); b.innerHTML = svg(ICON.check); setTimeout(() => { b.innerHTML = svg(ICON.copy); }, 1200); } catch {}
-    });
-    btn("Vorlesen", ICON.speak, () => { stopSpeaking(); speakChunk(text, true); });
+    if (m.images) {
+      btn("Bild speichern", ICON.save, async () => {
+        for (const id of m.images) {
+          const u = await imageURL(id); if (!u) continue;
+          const a = Object.assign(document.createElement("a"), { href: u, download: "jarvis-bild.png" }); a.click();
+        }
+      });
+    } else {
+      btn("Kopieren", ICON.copy, async (b) => {
+        try { await navigator.clipboard.writeText(text); b.innerHTML = svg(ICON.check); setTimeout(() => { b.innerHTML = svg(ICON.copy); }, 1200); } catch {}
+      });
+      btn("Vorlesen", ICON.speak, () => { stopSpeaking(); speakChunk(text, true); });
+    }
     if (isLast) btn("Neu generieren", ICON.again, regenerate);
     return bar;
   }
   function regenerate() {
     if (isBusy() || messages.length < 2 || messages[messages.length - 1].role !== "assistant") return;
-    messages.pop();
+    const was = messages.pop();
     const q = messages.pop();
-    send(q.content);
+    if (was.images) { was.images.forEach((id) => imgDB.del(id).catch(() => {})); sendImage(q.content); }
+    else send(q.content);
   }
   function setMode(m) {
     save("mode", m);
@@ -921,6 +946,7 @@
   async function send(textArg) {
     const text = (textArg ?? ui.input.value).trim();
     if (!text || isBusy()) return;
+    if (imageMode || IMAGE_ASK.test(text)) return sendImage(text);
     stopSpeaking();
     setInput("");
     showError("");
@@ -930,7 +956,7 @@
     setState("thinking");
 
     controller = new AbortController();
-    const history = messages.slice();
+    const history = messages.map(({ role, content }) => ({ role, content }));   // providers only take text
     const gen = streamFor(history, controller.signal);
     let reply = "";
     try {
@@ -989,7 +1015,7 @@
     c.updated = Date.now();
     c.messages = messages.slice();
     chats.sort((a, b) => b.updated - a.updated);
-    chats = chats.slice(0, 50);   // shortcut: only the last 50 chats are kept, raise if you need more
+    chats = chats.slice(0, 50);   // shortcut: only the last 50 chats are kept (pictures of dropped chats stay in IndexedDB), raise if you need more
     persistChats();
     renderChats();
   }
@@ -1047,6 +1073,7 @@
       const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
       del.setAttribute("aria-label", "Gespräch löschen: " + c.title);
       del.addEventListener("click", () => {
+        for (const m of c.messages) for (const id of m.images || []) imgDB.del(id).catch(() => {});
         chats = chats.filter((x) => x.id !== c.id); persistChats();
         if (c.id === chatId) newChat(); else renderChats();
       });
@@ -1325,6 +1352,7 @@
   function openSettings(focusId) {
     if (!openPanel(ui.settings, ui.settingsBtn)) return;
     renderVoices();
+    renderImgSettings();
     probeLocals();
     const row = typeof focusId === "string" && ui.settings.querySelector('.prov[data-id="' + focusId + '"]');
     if (row) { row.closest(".sect").open = true; row.open = true; row.scrollIntoView({ block: "center" }); row.querySelector("input").focus(); }
@@ -1483,6 +1511,132 @@
   }
   ui.cloudList.replaceChildren(...PROVIDERS.filter((p) => !p.local).map(provRow));
   ui.localList.replaceChildren(...PROVIDERS.filter((p) => p.local).map(provRow));
+
+  // ---------- images: made by OpenRouter or OpenAI, kept in this browser (IndexedDB), shown only in chat view ----------
+  const IMG_PROVIDERS = ["openrouter", "openai"];
+  const IMG_DEFAULT = { openrouter: "google/gemini-3.1-flash-image", openai: "gpt-image-1" };
+  const imgProv = () => prov(store.get("imgProv", "openrouter"));
+  const imgModel = (p) => store.get("imgModel." + p.id, IMG_DEFAULT[p.id]);
+  // "Erstelle ein Bild von …", "Zeichne mir ein Logo …", "Mal bitte eine Illustration …"
+  const IMAGE_ASK = /^(bitte\s+)?(erstell|generier|zeichne|zeichn|mal|male|mach|kreier|gestalt)\w*\s+(mir\s+|uns\s+)?(bitte\s+)?(ein|eine|einen)\s+(\w+\s+)?(bild|foto|grafik|zeichnung|illustration|logo|gemälde|poster|wallpaper|hintergrundbild|icon)\b/i;
+  console.assert(IMAGE_ASK.test("Erstelle ein Bild von einer Katze") && IMAGE_ASK.test("Zeichne mir ein lustiges Logo")
+    && IMAGE_ASK.test("mal bitte eine Illustration vom Meer") && !IMAGE_ASK.test("Wie erstelle ich ein Bild in Photoshop?")
+    && !IMAGE_ASK.test("Was ist ein Bild?"), "Jarvis: image request check failed");
+  let imageMode = false;
+
+  const imgDB = (() => {
+    let dbp;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      const r = indexedDB.open("jarvis", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("images");
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+    const run = async (mode, fn) => {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const t = db.transaction("images", mode), q = fn(t.objectStore("images"));
+        t.oncomplete = () => res(q.result); t.onerror = () => rej(t.error);
+      });
+    };
+    return { put: (id, b) => run("readwrite", (s) => s.put(b, id)), get: (id) => run("readonly", (s) => s.get(id)), del: (id) => run("readwrite", (s) => s.delete(id)) };
+  })();
+  const imgURLs = {};
+  async function imageURL(id) {
+    if (!(id in imgURLs)) { const b = await imgDB.get(id).catch(() => null); imgURLs[id] = b ? URL.createObjectURL(b) : ""; }
+    return imgURLs[id];
+  }
+  function imageEl(id) {
+    const a = document.createElement("a"); a.className = "pic"; a.target = "_blank"; a.rel = "noopener";
+    const img = document.createElement("img"); img.alt = "Von Jarvis erstelltes Bild"; img.decoding = "async";
+    a.append(img);
+    const show = (u) => { if (u) { img.src = u; a.href = u; } else a.replaceWith(Object.assign(document.createElement("p"), { className: "note", textContent: "Bild nicht mehr vorhanden." })); };
+    if (id in imgURLs) show(imgURLs[id]); else imageURL(id).then(show);
+    return a;
+  }
+
+  async function imageRouter(p, model, prompt, signal) {
+    const res = await post(p, baseOf(p) + "/chat/completions", { "Authorization": "Bearer " + keyOf(p), "X-Title": "Jarvis" },
+      { model, modalities: ["image", "text"], messages: [{ role: "user", content: prompt }] }, signal);
+    if (!res.ok) throw await failed(p, res);
+    const m = (((await res.json()).choices || [])[0] || {}).message || {};
+    return { text: typeof m.content === "string" ? m.content.trim() : "", urls: (m.images || []).map((i) => i.image_url && i.image_url.url).filter(Boolean) };
+  }
+  async function imageOpenAI(p, model, prompt, signal) {
+    const res = await post(p, baseOf(p) + "/images/generations", { "Authorization": "Bearer " + keyOf(p) },
+      { model, prompt, n: 1, size: "1024x1024", ...(model.startsWith("dall-e") ? { response_format: "b64_json" } : {}) }, signal);
+    if (!res.ok) throw await failed(p, res);
+    return { text: "", urls: ((await res.json()).data || []).map((d) => (d.b64_json ? "data:image/png;base64," + d.b64_json : d.url)).filter(Boolean) };
+  }
+
+  async function sendImage(prompt) {
+    if (!prompt || isBusy()) return;
+    const p = imgProv(), model = imgModel(p);
+    stopSpeaking(); setInput(""); showError(""); setImageMode(false);
+    if (cfg.mode !== "chat") setMode("chat");             // pictures live in the chat view
+    messages.push({ role: "user", content: prompt });
+    renderSaid();
+    renderReply("Ich male …", true);
+    setState("thinking");
+    controller = new AbortController();
+    try {
+      if (!keyOf(p)) throw new Error("Für Bilder fehlt noch ein API-Key für " + p.name + ". Trag ihn in den Einstellungen ein – unten in der Seitenleiste.");
+      const { text, urls } = await (p.id === "openai" ? imageOpenAI : imageRouter)(p, model, prompt, controller.signal);
+      if (!urls.length) throw new Error("Das Modell hat kein Bild geliefert. Probier in den Einstellungen ein anderes Bildmodell.");
+      const ids = [];
+      for (const u of urls) {
+        const id = "img-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await imgDB.put(id, await (await fetch(u)).blob());
+        ids.push(id);
+      }
+      messages.push({ role: "assistant", content: text || "Hier ist dein Bild.", images: ids });
+      saveChat();
+      renderReply(text || "Hier ist dein Bild.", true);
+    } catch (e) {
+      messages.pop();
+      if (e.name !== "AbortError") { setInput(prompt); showError(e.message); }
+      renderSaid();
+      renderReply(lastOf("assistant") || greeting(), true);
+    } finally {
+      controller = null;
+      setState("idle");
+    }
+  }
+
+  function setImageMode(on) {
+    imageMode = on;
+    ui.imgBtn.setAttribute("aria-pressed", String(on));
+    ui.input.placeholder = on ? "Beschreibe dein Bild …" : "Frag Jarvis …";
+    if (on && !matchMedia("(pointer: coarse)").matches) ui.input.focus();
+  }
+  ui.imgBtn.addEventListener("click", () => setImageMode(!imageMode));
+
+  // settings › Bilder
+  async function renderImgSettings() {
+    const p = imgProv();
+    ui.imgProv.replaceChildren(...IMG_PROVIDERS.map(prov).map((x) => new Option(x.name + (keyOf(x) ? "" : " – Key fehlt"), x.id)));
+    ui.imgProv.value = p.id;
+    const fill = (list) => {
+      const cur = imgModel(p);
+      if (!list.some((m) => m.id === cur)) list = [{ id: cur, name: cur }, ...list];
+      ui.imgModel.replaceChildren(...list.map((m) => new Option(m.name, m.id)));
+      ui.imgModel.value = cur;
+    };
+    fill([]);
+    try {
+      let list = [];
+      if (p.id === "openrouter") {
+        const j = await (await fetch(baseOf(p) + "/models")).json();
+        list = (j.data || []).filter((m) => m.architecture && (m.architecture.output_modalities || []).includes("image") && !m.id.startsWith("openrouter/"))
+          .map((m) => ({ id: m.id, name: m.name || m.id }));
+      } else if (keyOf(p)) {
+        const j = await (await fetch(baseOf(p) + "/models", { headers: { "Authorization": "Bearer " + keyOf(p) } })).json();
+        list = (j.data || []).filter((m) => /image|dall-e/.test(m.id)).map((m) => ({ id: m.id, name: m.id }));
+      }
+      if (imgProv() === p) fill(list);
+    } catch { /* offline: keep the current choice */ }
+  }
+  ui.imgProv.addEventListener("change", () => { store.set("imgProv", ui.imgProv.value); renderImgSettings(); });
+  ui.imgModel.addEventListener("change", () => store.set("imgModel." + imgProv().id, ui.imgModel.value));
 
   // ---------- the orb ----------
   const ctx = ui.canvas.getContext("2d");
@@ -1678,10 +1832,15 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.23";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.24";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.24", date: "2026-11-09", items: [
+      "Jarvis malt: „Erstelle ein Bild von …“ oder das Bild-Symbol im Eingabefeld",
+      "Bilder erscheinen in der Chat-Ansicht – Jarvis wechselt dafür von selbst hinein",
+      "Einstellungen › Bilder: Anbieter und Bildmodell wählen",
+    ] },
     { v: "1.23", date: "2026-11-09", items: ["Einstellungen kompakter: Cloud-Anbieter und lokale Programme lassen sich auf- und zuklappen"] },
     { v: "1.22", date: "2026-11-09", items: ["Einstellungen › Kugel: neben der Glut gibt es jetzt eine flauschige Fellkugel, die sich beim Zuhören und Sprechen aufplustert"] },
     { v: "1.21", date: "2026-11-09", items: [

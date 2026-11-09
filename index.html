@@ -231,6 +231,12 @@
     transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
     opacity: 0; transform: scale(0.97) translateY(-4px); visibility: hidden;
   }
+  .settings.sheet {   /* opened from the sidebar: rises from its bottom-left corner */
+    top: auto; right: auto;
+    bottom: max(16px, env(safe-area-inset-bottom)); left: 280px;
+    max-height: calc(100dvh - 32px);
+    transform-origin: bottom left; transform: scale(0.97) translateY(4px);
+  }
   .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
   .settings h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin-bottom: 16px; }
   .seg {
@@ -361,10 +367,13 @@
     }
     .side.open { transform: none; visibility: visible; transition: transform 300ms var(--ease-drawer); }
     .menu-btn { display: grid; }
+    .settings.sheet { left: 16px; }
   }
   @media (hover: hover) and (pointer: fine) { .chat-row .del:hover { color: var(--danger); } }
   @media (max-width: 440px) { .top .brand { display: none; } .pill { max-width: 30vw; } }
   .note { font-size: 12px; line-height: 18px; color: var(--text-3); }
+  .key-hint { margin-bottom: 12px; }
+  .link { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; font-size: inherit; }
   .note a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
 
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -396,6 +405,10 @@
   </div>
   <nav class="chat-list" id="chatList" aria-label="Frühere Gespräche"></nav>
   <div class="side-foot">
+    <button type="button" class="foot-btn press" id="settingsBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      Einstellungen
+    </button>
     <button type="button" class="foot-btn press" id="newsBtn" aria-haspopup="dialog" aria-expanded="false">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/></svg>
       Was ist neu
@@ -416,11 +429,11 @@
     </button>
     <div class="brand">JARVIS</div>
     <span class="grow"></span>
-    <button class="pill press" id="pill" aria-haspopup="dialog" aria-expanded="false" title="Modell und Anbieter ändern">
-      <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
-    </button>
     <button class="icon-btn press" id="modeBtn" aria-pressed="false" title="Chat-Ansicht" aria-label="Chat-Ansicht">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>
+    </button>
+    <button class="pill press" id="pill" aria-haspopup="dialog" aria-expanded="false" aria-controls="models" title="Modell wählen">
+      <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
     </button>
   </header>
 
@@ -452,7 +465,7 @@
 </div>
 </div>
 
-<section class="settings news" id="news" role="dialog" aria-label="Was ist neu" aria-modal="false">
+<section class="settings sheet news" id="news" role="dialog" aria-label="Was ist neu" aria-modal="false">
   <h2>Was ist neu</h2>
   <div id="newsList"></div>
 </section>
@@ -461,8 +474,8 @@
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
 </div>
 <div class="scrim" id="scrim" hidden></div>
-<section class="settings" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
-  <h2>Einstellungen</h2>
+<section class="settings" id="models" role="dialog" aria-label="Modell" aria-modal="false">
+  <h2>Modell</h2>
   <div class="seg" role="group" aria-label="Anbieter">
     <button type="button" data-provider="ollama" aria-pressed="true">Ollama (lokal)</button>
     <button type="button" data-provider="openrouter" aria-pressed="false">OpenRouter</button>
@@ -475,13 +488,17 @@
   </div>
 
   <div id="routerPane" hidden>
-    <label class="field" for="routerKey">API-Key</label>
-    <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
-    <label class="field" for="routerSearch">Modell</label>
-    <input id="routerSearch" placeholder="Suchen: claude, gpt, gemini …" spellcheck="false">
+    <p class="note key-hint" id="keyHint" hidden>Für OpenRouter fehlt noch ein API-Key. <button type="button" class="link" id="keyLink">In den Einstellungen eintragen</button></p>
+    <input id="routerSearch" placeholder="Suchen: claude, gpt, gemini …" spellcheck="false" aria-label="Modell suchen">
     <div class="models" id="routerModels" role="radiogroup" aria-label="OpenRouter-Modelle"></div>
-    <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
   </div>
+</section>
+
+<section class="settings sheet" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
+  <h2>Einstellungen</h2>
+  <label class="field" for="routerKey">OpenRouter-API-Key</label>
+  <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
+  <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
 
   <label class="field" style="margin-top:24px">Sprache</label>
   <div class="toggles">
@@ -543,7 +560,7 @@
     canvas: $("orb"), status: $("status"), statusText: $("statusText"),
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
-    settings: $("settings"), scrim: $("scrim"),
+    settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), keyHint: $("keyHint"), keyLink: $("keyLink"), scrim: $("scrim"),
     ollamaPane: $("ollamaPane"), ollamaModel: $("ollamaModel"), ollamaNote: $("ollamaNote"),
     updBanner: $("updBanner"), updBannerText: $("updBannerText"), updBtn: $("updBtn"), updNote: $("updNote"), verText: $("verText"),
     routerPane: $("routerPane"), routerKey: $("routerKey"), routerSearch: $("routerSearch"), routerModels: $("routerModels"),
@@ -675,7 +692,7 @@
   }
 
   async function* streamRouter(history, signal) {
-    if (!cfg.routerKey) throw new Error("Kein OpenRouter-API-Key hinterlegt. Trag ihn oben rechts in den Einstellungen ein.");
+    if (!cfg.routerKey) throw new Error("Kein OpenRouter-API-Key hinterlegt. Trag ihn in den Einstellungen ein – unten in der Seitenleiste.");
     let res;
     try {
       res = await fetch(ROUTER + "/chat/completions", {
@@ -831,14 +848,14 @@
     ui.chatList.replaceChildren(...out);
   }
   function openSide() {
-    closeSettings();
+    closePanels();
     ui.side.classList.add("open"); ui.scrim.hidden = false; ui.scrim.classList.add("dim");
     ui.menuBtn.setAttribute("aria-expanded", "true");
   }
   function closeSide() {
     if (!ui.side.classList.contains("open")) return;
     ui.side.classList.remove("open"); ui.scrim.classList.remove("dim");
-    if (!ui.settings.classList.contains("open")) ui.scrim.hidden = true;
+    if (!anyPanel()) ui.scrim.hidden = true;
     ui.menuBtn.setAttribute("aria-expanded", "false");
   }
   ui.menuBtn.addEventListener("click", openSide);
@@ -873,9 +890,8 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (ui.news.classList.contains("open")) closeNews();
+    if (anyPanel()) closePanels();
     else if (ui.side.classList.contains("open")) closeSide();
-    else if (ui.settings.classList.contains("open")) closeSettings();
     else if (listening()) stopListening();
     else stop();
   });
@@ -1078,24 +1094,36 @@
   const PICKS = ["openrouter/auto", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
                  "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
 
-  function openSettings() {
-    closeNews();
-    closeSide();
-    ui.settings.classList.add("open");
+  // ---------- panels: model (top right), settings and "what's new" (sidebar) ----------
+  const panelTriggers = () => [[ui.models, ui.pill], [ui.settings, ui.settingsBtn], [ui.news, ui.newsBtn]];
+  const anyPanel = () => !!document.querySelector(".settings.open");
+  function closePanels() {
+    for (const [p, t] of panelTriggers()) { p.classList.remove("open"); t.setAttribute("aria-expanded", "false"); }
+    if (!ui.side.classList.contains("open")) ui.scrim.hidden = true;
+  }
+  function openPanel(panel, trigger) {
+    const wasOpen = panel.classList.contains("open");
+    closePanels(); closeSide();
+    if (wasOpen) return false;                         // second click closes it
+    panel.classList.add("open"); trigger.setAttribute("aria-expanded", "true");
     ui.scrim.hidden = false;
-    ui.pill.setAttribute("aria-expanded", "true");
+    return true;
+  }
+  function openModels() {
+    if (!openPanel(ui.models, ui.pill)) return;
     renderProvider();
-    renderVoices();
     loadOllamaModels();
     if (!routerList.length) loadRouterModels();
   }
-  function closeSettings() {
-    ui.settings.classList.remove("open");
-    ui.scrim.hidden = true;
-    ui.pill.setAttribute("aria-expanded", "false");
+  function openSettings() {
+    if (!openPanel(ui.settings, ui.settingsBtn)) return;
+    ui.routerKey.value = cfg.routerKey;
+    renderVoices();
   }
-  ui.pill.addEventListener("click", () => (ui.settings.classList.contains("open") ? closeSettings() : openSettings()));
-  ui.scrim.addEventListener("click", () => { closeSettings(); closeSide(); closeNews(); });
+  ui.pill.addEventListener("click", openModels);
+  ui.settingsBtn.addEventListener("click", openSettings);
+  ui.keyLink.addEventListener("click", openSettings);
+  ui.scrim.addEventListener("click", () => { closePanels(); closeSide(); });
 
   document.querySelectorAll(".seg button").forEach((b) =>
     b.addEventListener("click", () => { save("provider", b.dataset.provider); renderProvider(); }));
@@ -1103,7 +1131,7 @@
     document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.provider === cfg.provider)));
     ui.ollamaPane.hidden = cfg.provider !== "ollama";
     ui.routerPane.hidden = cfg.provider !== "openrouter";
-    ui.routerKey.value = cfg.routerKey;
+    ui.keyHint.hidden = !!cfg.routerKey;
     renderRouterModels();
   }
 
@@ -1297,10 +1325,14 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.17";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.18";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.18", date: "2026-11-09", items: [
+      "Modellauswahl und Einstellungen sind getrennt: das Modell oben rechts, die Einstellungen unten in der Seitenleiste",
+      "Chat-Ansicht-Knopf sitzt jetzt links neben dem Modell",
+    ] },
     { v: "1.17", date: "2026-11-09", items: ["„Hey Jarvis“ und „Antworten vorlesen“ sind jetzt Schalter in den Einstellungen – oben bleiben nur Modell und Ansicht"] },
     { v: "1.16", date: "2026-11-09", items: [
       "Einstellungen › Version: „Nach Updates suchen“",
@@ -1358,16 +1390,9 @@
     }));
   }
   function openNews() {
-    closeSettings(); closeSide();
+    if (!openPanel(ui.news, ui.newsBtn)) return;
     renderNews();
-    ui.news.classList.add("open"); ui.scrim.hidden = false;
-    ui.newsBtn.setAttribute("aria-expanded", "true");
     store.set("seenVersion", VERSION); ui.newsBadge.hidden = true;
-  }
-  function closeNews() {
-    if (!ui.news.classList.contains("open")) return;
-    ui.news.classList.remove("open"); ui.scrim.hidden = true;
-    ui.newsBtn.setAttribute("aria-expanded", "false");
   }
   ui.newsBtn.addEventListener("click", openNews);
   ui.versionLabel.textContent = "v" + VERSION;

@@ -19,6 +19,7 @@
 - 🎙️ **Sprechen** – Klick auf die Kugel und frag einfach los, auf Deutsch
 - 🔊 **Antworten vorlesen** – Satz für Satz, mit einer deutschen Stimme deiner Wahl
 - 👋 **„Hey Jarvis“** – Auf Wunsch hört Jarvis zu und reagiert auf sein Weckwort
+- 🎨 **Bilder** – „Erstelle ein Bild von …“: über OpenRouter, OpenAI oder Mage.space (Desktop-App und Mac-Version)
 - 🕘 **Verlauf** – Gespräche bleiben gespeichert und lassen sich wieder öffnen
 - 🧠 **Viele Anbieter** – OpenRouter, Requesty, Vercel AI Gateway, Eden AI, Hugging Face, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek und xAI, jeweils mit eigenem Key
 - 💻 **Lokal & privat** – Am Computer mit Ollama, LM Studio, Jan, llama.cpp, vLLM oder LocalAI – Jarvis erkennt sie von selbst

@@ -222,6 +222,7 @@
   #mic, #imgBtn { background: var(--raised); color: var(--text-2); }
   #imgBtn[aria-pressed="true"] { background: rgba(255, 138, 61, 0.16); color: var(--orange); }
   .pic { display: block; width: fit-content; max-width: min(100%, 440px); margin-bottom: 8px; border-radius: 12px; overflow: hidden; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
+  .cost { margin: -4px 0 8px; font: 12px/16px var(--mono); color: var(--text-3); }
   .pic img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
   .lightbox {
     position: fixed; inset: 0; z-index: 30;
@@ -590,6 +591,8 @@
   <label class="field" style="margin-top:24px" for="imgProv">Bilder</label>
   <select id="imgProv" aria-label="Anbieter für Bilder"></select>
   <select id="imgModel" aria-label="Bildmodell"></select>
+  <input id="imgKey" type="password" placeholder="Mage-API-Key (mage_sk_…)" spellcheck="false" autocomplete="off" aria-label="Mage-API-Key" hidden>
+  <p class="note" id="imgNote" hidden style="margin:-8px 0 16px"></p>
   <p class="note" style="margin-top:-8px">Sag zum Beispiel „Erstelle ein Bild von …“ oder tippe auf das Bild-Symbol im Eingabefeld. Bilder erscheinen in der Chat-Ansicht und bleiben in diesem Browser gespeichert.</p>
 
   <label class="field" style="margin-top:24px">Kugel</label>
@@ -698,7 +701,7 @@
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), scrim: $("scrim"),
     lightbox: $("lightbox"), lbImg: $("lbImg"), lbSave: $("lbSave"), lbClose: $("lbClose"),
-    imgBtn: $("imgBtn"), imgProv: $("imgProv"), imgModel: $("imgModel"),
+    imgBtn: $("imgBtn"), imgProv: $("imgProv"), imgModel: $("imgModel"), imgKey: $("imgKey"), imgNote: $("imgNote"),
     provSel: $("provSel"), provNote: $("provNote"), modelSearch: $("modelSearch"), modelList: $("modelList"),
     cloudList: $("cloudList"), localList: $("localList"), localSection: $("localSection"),
     updBanner: $("updBanner"), updBannerText: $("updBannerText"), updBtn: $("updBtn"), updNote: $("updNote"), verText: $("verText"),
@@ -800,6 +803,7 @@
       d.className = "msg " + (m.role === "user" ? "me" : "ai");
       if (m.role === "user") { d.textContent = m.content; return d; }
       if (m.images) d.append(...m.images.map(imageEl));
+      if (m.cost) d.append(Object.assign(document.createElement("p"), { className: "cost", textContent: m.cost }));
       const body = document.createElement("div"); body.className = "md"; body.innerHTML = md(m.content);
       d.append(body);
       if (i < messages.length) d.append(msgActions(m, i === messages.length - 1));   // saved replies only
@@ -1538,9 +1542,14 @@
   ui.localList.replaceChildren(...PROVIDERS.filter((p) => p.local).map(provRow));
 
   // ---------- images: made by OpenRouter or OpenAI, kept in this browser (IndexedDB), shown only in chat view ----------
-  const IMG_PROVIDERS = ["openrouter", "openai"];
-  const IMG_DEFAULT = { openrouter: "google/gemini-3.1-flash-image", openai: "gpt-image-1" };
-  const imgProv = () => prov(store.get("imgProv", "openrouter"));
+  // Mage.space makes pictures only, so it lives here and not in the chat model list
+  const MAGE = { id: "mage", name: "Mage.space", imageOnly: true, keyUrl: "https://www.mage.space/api?tab=api-keys" };
+  const IMG_PROVIDERS = ["openrouter", "openai", "mage"];
+  const IMG_DEFAULT = { openrouter: "google/gemini-3.1-flash-image", openai: "gpt-image-1", mage: "mango" };
+  const imgProvById = (id) => (id === "mage" ? MAGE : prov(id));
+  const imgProv = () => imgProvById(store.get("imgProv", "openrouter"));
+  // Mage sends no CORS headers: the desktop app calls it itself, the Mac version passes it through /mage-api
+  const mageBase = () => (ofetchIsApp ? "https://api.mage.space" : location.protocol === "http:" ? location.origin + "/mage-api" : "");
   const imgModel = (p) => store.get("imgModel." + p.id, IMG_DEFAULT[p.id]);
   // "Erstelle ein Bild von …", "Zeichne mir ein Logo …", "Mal bitte eine Illustration …"
   const IMAGE_ASK = /^(bitte\s+)?(erstell|generier|zeichne|zeichn|mal|male|mach|kreier|gestalt)\w*\s+(mir\s+|uns\s+)?(bitte\s+)?(ein|eine|einen)\s+(\w+\s+)?(bild|foto|grafik|zeichnung|illustration|logo|gemälde|poster|wallpaper|hintergrundbild|icon)\b/i;
@@ -1613,6 +1622,42 @@
     return { text: "", urls: ((await res.json()).data || []).map((d) => (d.b64_json ? "data:image/png;base64," + d.b64_json : d.url)).filter(Boolean) };
   }
 
+  async function mageError(res) {
+    let e = {}; try { e = (await res.json()).error || {}; } catch {}
+    if (res.status === 401) return new Error("Der Mage-API-Key ist ungültig oder wurde widerrufen.");
+    if (res.status === 402) return new Error(e.code === "insufficient_gems"
+      ? "Bei Mage reichen deine Gems nicht für dieses Bild."
+      : "Die Mage-API braucht einmal einen Kauf auf dem Konto (Gem-Paket oder Abo), vorher geht kein Key.");
+    return new Error("Mage: " + (e.message || "Fehler " + res.status));
+  }
+  async function imageMage(p, model, prompt, signal) {
+    const base = mageBase();
+    if (!base) throw new Error("Mage.space geht nur in der Desktop-App und der Mac-Version – Mage blockiert Aufrufe direkt aus dem Browser.");
+    const f = ofetchIsApp ? ofetch : (...a) => fetch(...a);
+    const auth = { "Authorization": "Bearer " + keyOf(p) };
+    let res = await f(base + "/v1/" + encodeURIComponent(model) + "/generate", {
+      method: "POST", signal,
+      headers: { ...auth, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },   // a retried submit never pays twice
+      body: JSON.stringify({ prompt, aspect_ratio: "1:1" }),
+    });
+    if (!res.ok) throw await mageError(res);
+    let r = await res.json();
+    // Mage works in the background: ask again with growing pauses until the picture is done
+    for (let delay = 2000, until = Date.now() + 240000; !["completed", "failed", "cancelled"].includes(r.status); delay = Math.min(delay * 1.5, 15000)) {
+      if (Date.now() > until) throw new Error("Mage braucht ungewöhnlich lange. Das Bild erscheint später in deinem Mage-Konto.");
+      await new Promise((ok, no) => {
+        const t = setTimeout(ok, delay);
+        signal.addEventListener("abort", () => { clearTimeout(t); no(new DOMException("Abgebrochen", "AbortError")); }, { once: true });
+      });
+      res = await f(r.status_url.replace("https://api.mage.space", base), { headers: auth, signal });
+      if (!res.ok) throw await mageError(res);
+      r = await res.json();
+    }
+    if (r.status !== "completed") throw new Error("Mage: " + ((r.error && r.error.message) || "Es wurde kein Bild erstellt.") + (r.billing && r.billing.gems_refunded ? " Die Gems wurden erstattet." : ""));
+    const gems = r.billing && r.billing.gems_charged;
+    return { text: "", urls: r.result && r.result.url ? [r.result.url] : [], cost: gems ? gems + " Gems" : "" };
+  }
+
   async function sendImage(prompt) {
     if (!prompt || isBusy()) return;
     const p = imgProv(), model = imgModel(p);
@@ -1625,7 +1670,7 @@
     controller = new AbortController();
     try {
       if (!keyOf(p)) throw new Error("Für Bilder fehlt noch ein API-Key für " + p.name + ". Trag ihn in den Einstellungen ein – unten in der Seitenleiste.");
-      const { text, urls } = await (p.id === "openai" ? imageOpenAI : imageRouter)(p, model, prompt, controller.signal);
+      const { text, urls, cost } = await (p.id === "openai" ? imageOpenAI : p.id === "mage" ? imageMage : imageRouter)(p, model, prompt, controller.signal);
       if (!urls.length) throw new Error("Das Modell hat kein Bild geliefert. Probier in den Einstellungen ein anderes Bildmodell.");
       const ids = [];
       for (const u of urls) {
@@ -1633,7 +1678,7 @@
         await imgDB.put(id, await (await fetch(u)).blob());
         ids.push(id);
       }
-      messages.push({ role: "assistant", content: text || "Hier ist dein Bild.", images: ids });
+      messages.push({ role: "assistant", content: text || "Hier ist dein Bild.", images: ids, ...(cost ? { cost } : {}) });
       saveChat();
       renderReply(text || "Hier ist dein Bild.", true);
     } catch (e) {
@@ -1658,8 +1703,15 @@
   // settings › Bilder
   async function renderImgSettings() {
     const p = imgProv();
-    ui.imgProv.replaceChildren(...IMG_PROVIDERS.map(prov).map((x) => new Option(x.name + (keyOf(x) ? "" : " – Key fehlt"), x.id)));
+    ui.imgProv.replaceChildren(...IMG_PROVIDERS.map(imgProvById).map((x) => new Option(x.name + (keyOf(x) ? "" : " – Key fehlt"), x.id)));
     ui.imgProv.value = p.id;
+    ui.imgKey.hidden = !p.imageOnly; ui.imgKey.value = keyOf(p);
+    ui.imgNote.replaceChildren();
+    if (p.id === "mage") {
+      const a = Object.assign(document.createElement("a"), { href: p.keyUrl, target: "_blank", rel: "noopener", textContent: "Key holen" });
+      ui.imgNote.append(mageBase() ? "Bezahlt wird mit Gems – auch mit Abo. " : "Geht nur in der Desktop-App und der Mac-Version. ", a);
+    }
+    ui.imgNote.hidden = !ui.imgNote.childNodes.length;
     const fill = (list) => {
       const cur = imgModel(p);
       if (!list.some((m) => m.id === cur)) list = [{ id: cur, name: cur }, ...list];
@@ -1673,6 +1725,13 @@
         const j = await (await fetch(baseOf(p) + "/models")).json();
         list = (j.data || []).filter((m) => m.architecture && (m.architecture.output_modalities || []).includes("image") && !m.id.startsWith("openrouter/"))
           .map((m) => ({ id: m.id, name: m.name || m.id }));
+      } else if (p.id === "mage") {
+        if (keyOf(p) && mageBase()) {
+          const f = ofetchIsApp ? ofetch : (...a) => fetch(...a);
+          const j = await (await f(mageBase() + "/v1/architectures", { headers: { "Authorization": "Bearer " + keyOf(p) } })).json();
+          list = (j.architectures || j.data || []).filter((a) => a.type === "image")
+            .map((a) => ({ id: a.id, name: (a.name || a.id) + (a.gems != null ? " · " + a.gems + " Gems" : "") }));
+        }
       } else if (keyOf(p)) {
         const j = await (await fetch(baseOf(p) + "/models", { headers: { "Authorization": "Bearer " + keyOf(p) } })).json();
         list = (j.data || []).filter((m) => /image|dall-e/.test(m.id)).map((m) => ({ id: m.id, name: m.id }));
@@ -1682,6 +1741,7 @@
   }
   ui.imgProv.addEventListener("change", () => { store.set("imgProv", ui.imgProv.value); renderImgSettings(); });
   ui.imgModel.addEventListener("change", () => store.set("imgModel." + imgProv().id, ui.imgModel.value));
+  ui.imgKey.addEventListener("change", () => { store.set("key." + imgProv().id, ui.imgKey.value.trim()); renderImgSettings(); });
 
   // ---------- the orb ----------
   const ctx = ui.canvas.getContext("2d");
@@ -1877,10 +1937,14 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.25";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.26";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.26", date: "2026-11-09", items: [
+      "Bilder mit Mage.space – in der Desktop-App und der Mac-Version",
+      "Die Modellauswahl zeigt den Preis in Gems, und unter jedem Mage-Bild steht, was es gekostet hat",
+    ] },
     { v: "1.25", date: "2026-11-09", items: ["Bilder lassen sich vergrößern: aufs Bild tippen oder das Vergrößern-Symbol darunter"] },
     { v: "1.24", date: "2026-11-09", items: [
       "Jarvis malt: „Erstelle ein Bild von …“ oder das Bild-Symbol im Eingabefeld",

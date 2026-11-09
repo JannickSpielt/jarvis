@@ -13,6 +13,9 @@
         },
         {
           "url": "http://localhost:*/*"
+        },
+        {
+          "url": "https://api.mage.space/*"
         }
       ]
     },

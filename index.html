@@ -203,6 +203,17 @@
   #send:disabled { background: var(--raised); color: var(--text-3); cursor: default; }
   .hint { font-size: 12px; line-height: 16px; color: var(--text-3); display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
   .hint span { display: inline-flex; align-items: center; gap: 4px; }
+  .upd-banner {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 32px; padding: 0 12px; border-radius: 8px;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 13px; font-weight: 500; color: var(--text);
+  }
+  .upd-banner[hidden] { display: none; }
+  .upd-banner i { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
+  .ver { flex: 1; min-width: 0; font: 13px/36px var(--mono); color: var(--text-2); }
+  #updNote { margin-top: 8px; }
+  #updNote:empty { display: none; }
   kbd {
     font: 500 11px/16px var(--mono); color: var(--text-2);
     padding: 0 4px; border-radius: 4px;
@@ -421,6 +432,7 @@
   </main>
 
   <footer class="bottom">
+    <button type="button" class="upd-banner press" id="updBanner" hidden><i></i><span id="updBannerText"></span></button>
     <p class="error" id="error" role="alert"></p>
     <form class="bar" id="form" autocomplete="off">
       <label for="input" class="sr-only">Nachricht an Jarvis</label>
@@ -474,6 +486,13 @@
     <button type="button" class="test press" id="voiceTest">Probehören</button>
   </div>
   <p class="note">Mehr und bessere Stimmen: Systemeinstellungen › Bedienungshilfen › Gesprochene Inhalte › Systemstimme › Stimmen verwalten.</p>
+
+  <label class="field" style="margin-top:24px">Version</label>
+  <div class="row">
+    <p class="ver" id="verText"></p>
+    <button type="button" class="test press" id="updBtn">Nach Updates suchen</button>
+  </div>
+  <p class="note" id="updNote" aria-live="polite"></p>
 </section>
 
 <script>
@@ -518,6 +537,7 @@
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), scrim: $("scrim"),
     ollamaPane: $("ollamaPane"), ollamaModel: $("ollamaModel"), ollamaNote: $("ollamaNote"),
+    updBanner: $("updBanner"), updBannerText: $("updBannerText"), updBtn: $("updBtn"), updNote: $("updNote"), verText: $("verText"),
     routerPane: $("routerPane"), routerKey: $("routerKey"), routerSearch: $("routerSearch"), routerModels: $("routerModels"),
   };
 
@@ -1271,10 +1291,14 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.15";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.16";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.16", date: "2026-11-09", items: [
+      "Einstellungen › Version: „Nach Updates suchen“",
+      "Die Desktop-App prüft beim Start, ob es eine neue App-Version gibt, und installiert sie auf Knopfdruck",
+    ] },
     { v: "1.15", date: "2026-11-09", items: [
       "Ruhigeres Design: Orange leuchtet nur noch dort, wo es etwas bedeutet – die Kugel steht im Mittelpunkt",
       "Einheitliche Abstände, Schriftgrößen und Symbole",
@@ -1341,17 +1365,61 @@
   ui.newsBtn.addEventListener("click", openNews);
   ui.versionLabel.textContent = "v" + VERSION;
   ui.newsBadge.hidden = store.get("seenVersion", "") === VERSION;
+  async function onlineVersion() {   // relative URL: the desktop app resolves it to GitHub, the web versions to themselves
+    const html = await (await fetch("index.html", { cache: "reload" })).text();
+    return (html.match(/const VERSION = "([^"]+)"/) || [])[1] || "";
+  }
   async function checkUpdate() {
     try {
-      const html = await (await fetch("index.html", { cache: "reload" })).text();
-      const online = (html.match(/const VERSION = "([^"]+)"/) || [])[1];
+      const online = await onlineVersion();
       if (!online || online === VERSION || isBusy()) return;
       if (sessionStorage.getItem("jarvis.reloadedFor") === online) return;   // never loop
       sessionStorage.setItem("jarvis.reloadedFor", online);
       location.reload();
     } catch { /* offline or storage blocked: keep running */ }
   }
+
+  // Desktop app (.dmg/.exe): the app itself updates from signed GitHub releases.
+  const T = window.__TAURI__;
+  const desktop = !!(T && T.updater);
+  let appVersion = "", pendingUpdate = null;
+  async function checkApp() {
+    if (!desktop) return null;
+    pendingUpdate = await T.updater.check();
+    ui.updBanner.hidden = !pendingUpdate;
+    if (pendingUpdate) {
+      ui.updBannerText.textContent = "App-Update " + pendingUpdate.version + " installieren";
+      ui.updBtn.textContent = "Jetzt installieren";
+    }
+    return pendingUpdate;
+  }
+  async function installApp() {
+    if (!pendingUpdate) return;
+    ui.updBanner.disabled = ui.updBtn.disabled = true;
+    ui.updNote.textContent = "Lade App-Update " + pendingUpdate.version + " …";
+    try { await pendingUpdate.downloadAndInstall(); await T.process.relaunch(); }
+    catch (e) { ui.updNote.textContent = "Update fehlgeschlagen: " + (e && e.message || e); ui.updBanner.disabled = ui.updBtn.disabled = false; }
+  }
+  function renderVersion() { ui.verText.textContent = "Jarvis " + VERSION + (appVersion ? " · App " + appVersion : ""); }
+  ui.updBtn.addEventListener("click", async () => {
+    if (pendingUpdate) return installApp();
+    ui.updBtn.disabled = true; ui.updNote.textContent = "Suche nach Updates …";
+    try {
+      const online = await onlineVersion();
+      if (online && online !== VERSION) {
+        ui.updNote.textContent = "Lade Jarvis " + online + " …";
+        sessionStorage.setItem("jarvis.reloadedFor", online); location.reload(); return;
+      }
+      const u = await checkApp();
+      ui.updNote.textContent = u ? "App-Update " + u.version + " ist bereit." : "Alles aktuell.";
+    } catch { ui.updNote.textContent = "Keine Verbindung – versuch es später nochmal."; }
+    ui.updBtn.disabled = false;
+  });
+  ui.updBanner.addEventListener("click", installApp);
+  if (desktop) T.app.getVersion().then((v) => { appVersion = v; renderVersion(); }).catch(() => {});
+  renderVersion();
   checkUpdate();
+  checkApp().catch(() => { /* offline: try again next start */ });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
 
   // ---------- boot ----------

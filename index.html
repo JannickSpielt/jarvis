@@ -272,14 +272,6 @@
   }
   .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
   .settings h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin-bottom: 16px; }
-  .seg {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
-    padding: 4px; border-radius: 10px; background: var(--side);
-    margin-bottom: 16px;
-  }
-  .seg[hidden] { display: none; }
-  .seg button { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-3); transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
-  .seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
   .toggles { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
   .toggle {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -411,7 +403,20 @@
   @media (hover: hover) and (pointer: fine) { .chat-row .del:hover { color: var(--danger); } }
   @media (max-width: 440px) { .top .brand { display: none; } .pill { max-width: 30vw; } }
   .note { font-size: 12px; line-height: 18px; color: var(--text-3); }
-  .key-hint { margin-bottom: 12px; }
+  .prov-note { margin: -4px 0 12px; }
+  #models .models { max-height: min(320px, 50dvh); overflow-y: auto; margin: 8px -4px 0; padding: 0 4px; }
+  #models input { margin-bottom: 0; }
+  #models select { margin-bottom: 12px; }
+  .provs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .prov { border-radius: 8px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
+  .prov summary { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; cursor: pointer; list-style: none; font-size: 14px; }
+  .prov summary::-webkit-details-marker { display: none; }
+  .prov summary small { margin-left: auto; display: flex; align-items: center; gap: 6px; font: 12px/16px var(--mono); color: var(--text-3); }
+  .prov summary small.ok::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #4cc38a; }
+  .prov summary svg { color: var(--text-3); transition: transform 150ms var(--ease-out); }
+  .prov[open] summary svg { transform: rotate(180deg); }
+  .prov .body { padding: 0 12px 12px; }
+  .prov .body input { margin-bottom: 8px; background: var(--panel); }
   .link { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; font-size: inherit; }
   .note a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
 
@@ -519,29 +524,24 @@
 <div class="scrim" id="scrim" hidden></div>
 <section class="settings" id="models" role="dialog" aria-label="Modell" aria-modal="false">
   <h2>Modell</h2>
-  <div class="seg" role="group" aria-label="Anbieter">
-    <button type="button" data-provider="ollama" aria-pressed="true">Ollama (lokal)</button>
-    <button type="button" data-provider="openrouter" aria-pressed="false">OpenRouter</button>
-  </div>
-
-  <div id="ollamaPane">
-    <label class="field" for="ollamaModel">Modell</label>
-    <select id="ollamaModel"></select>
-    <p class="note" id="ollamaNote">Läuft komplett auf deinem Mac – kostenlos und privat.</p>
-  </div>
-
-  <div id="routerPane" hidden>
-    <p class="note key-hint" id="keyHint" hidden>Für OpenRouter fehlt noch ein API-Key. <button type="button" class="link" id="keyLink">In den Einstellungen eintragen</button></p>
-    <input id="routerSearch" placeholder="Suchen: claude, gpt, gemini …" spellcheck="false" aria-label="Modell suchen">
-    <div class="models" id="routerModels" role="radiogroup" aria-label="OpenRouter-Modelle"></div>
-  </div>
+  <label class="field" for="provSel">Anbieter</label>
+  <select id="provSel"></select>
+  <p class="note prov-note" id="provNote" hidden></p>
+  <input id="modelSearch" placeholder="Modell suchen" spellcheck="false" autocomplete="off" aria-label="Modell suchen">
+  <div class="models" id="modelList" role="radiogroup" aria-label="Modelle"></div>
 </section>
 
 <section class="settings sheet" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
   <h2>Einstellungen</h2>
-  <label class="field" for="routerKey">OpenRouter-API-Key</label>
-  <input id="routerKey" type="password" placeholder="sk-or-…" spellcheck="false">
-  <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
+  <label class="field">Cloud-Anbieter</label>
+  <div class="provs" id="cloudList"></div>
+  <p class="note">Keys bleiben nur in diesem Browser gespeichert und gehen direkt an den jeweiligen Anbieter. Abgerechnet wird dort pro Nutzung.</p>
+
+  <div id="localSection">
+    <label class="field" style="margin-top:24px">Lokale Programme</label>
+    <div class="provs" id="localList"></div>
+    <p class="note">Laufen kostenlos und privat auf diesem Computer. Jarvis erkennt sie von selbst, sobald sie gestartet sind.</p>
+  </div>
 
   <label class="field" style="margin-top:24px">Sprache</label>
   <div class="toggles">
@@ -575,11 +575,7 @@
   // Ollama runs only on a computer; phones and tablets (incl. iPads that report "Mac") use OpenRouter.
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
   const cfg = {
-    // Default everywhere: OpenRouter with openrouter/auto. On a computer Ollama can be picked in the settings.
-    provider: isMobile ? "openrouter" : store.get("provider", "openrouter"),
-    ollamaModel: store.get("ollamaModel", "qwen3.5:4b"),
-    routerModel: store.get("routerModel", "openrouter/auto"),
-    routerKey: store.get("routerKey", ""),
+    provider: store.get("provider", "openrouter"),   // id from PROVIDERS; the model is kept per provider
     speak: store.get("speak", "1") === "1",
     wake: store.get("wake", "0") === "1",
     mode: store.get("mode", "orb"),     // "orb" | "chat"
@@ -587,11 +583,52 @@
   };
   const save = (k, v) => { cfg[k] = v; store.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v); renderPill(); };
 
-  const OLLAMA = "http://127.0.0.1:11434";
-  // In the desktop app, Ollama requests go through the app itself (no browser block, no CORS).
+  // In the desktop app, requests to local programs go through the app itself (no browser block, no CORS).
   const tauriHttp = window.__TAURI__ && window.__TAURI__.http;
   const ofetch = tauriHttp ? tauriHttp.fetch : (...a) => fetch(...a);
-  const ROUTER = "https://openrouter.ai/api/v1";
+  const ofetchIsApp = !!tauriHttp;
+
+  // ---------- providers ----------
+  // Cloud services speak the OpenAI chat format unless `kind` says otherwise; local programs run on this computer.
+  const PROVIDERS = [
+    { id: "openrouter", name: "OpenRouter", base: "https://openrouter.ai/api/v1", keyUrl: "https://openrouter.ai/keys", def: "openrouter/auto" },
+    { id: "requesty", name: "Requesty", base: "https://router.requesty.ai/v1", keyUrl: "https://app.requesty.ai/api-keys" },
+    { id: "vercel", name: "Vercel AI Gateway", base: "https://ai-gateway.vercel.sh/v1", keyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys" },
+    { id: "edenai", name: "Eden AI", base: "https://api.edenai.run/v3/llm", keyUrl: "https://app.edenai.run/admin/iam/api-keys" },
+    { id: "huggingface", name: "Hugging Face", base: "https://router.huggingface.co/v1", keyUrl: "https://huggingface.co/settings/tokens" },
+    { id: "openai", name: "OpenAI", base: "https://api.openai.com/v1", keyUrl: "https://platform.openai.com/api-keys" },
+    { id: "anthropic", name: "Anthropic (Claude)", kind: "anthropic", base: "https://api.anthropic.com/v1", keyUrl: "https://console.anthropic.com/settings/keys" },
+    { id: "gemini", name: "Google Gemini", base: "https://generativelanguage.googleapis.com/v1beta/openai", keyUrl: "https://aistudio.google.com/apikey" },
+    { id: "groq", name: "Groq", base: "https://api.groq.com/openai/v1", keyUrl: "https://console.groq.com/keys" },
+    { id: "mistral", name: "Mistral", base: "https://api.mistral.ai/v1", keyUrl: "https://console.mistral.ai/api-keys" },
+    { id: "deepseek", name: "DeepSeek", base: "https://api.deepseek.com/v1", keyUrl: "https://platform.deepseek.com/api_keys" },
+    { id: "xai", name: "xAI (Grok)", base: "https://api.x.ai/v1", keyUrl: "https://console.x.ai" },
+    { id: "ollama", name: "Ollama", local: true, kind: "ollama", base: "http://127.0.0.1:11434", get: "https://ollama.com/download",
+      hint: "Startet nach der Installation von selbst." },
+    { id: "lmstudio", name: "LM Studio", local: true, base: "http://127.0.0.1:1234/v1", get: "https://lmstudio.ai/download",
+      hint: "In LM Studio unter Developer den Server starten und „Enable CORS“ einschalten." },
+    { id: "jan", name: "Jan", local: true, base: "http://127.0.0.1:1337/v1", get: "https://jan.ai/download",
+      hint: "In Jan unter Einstellungen › Local API Server den Server starten." },
+    { id: "llamacpp", name: "llama.cpp", local: true, base: "http://127.0.0.1:8080/v1", get: "https://github.com/ggml-org/llama.cpp#quick-start",
+      hint: "Starten mit: llama-server -m modell.gguf" },
+    { id: "vllm", name: "vLLM", local: true, base: "http://127.0.0.1:8000/v1", get: "https://docs.vllm.ai/en/latest/getting_started/installation/",
+      hint: "Starten mit: vllm serve <modell>" },
+    { id: "localai", name: "LocalAI", local: true, base: "http://127.0.0.1:8080/v1", get: "https://localai.io/installation/",
+      hint: "Nutzt wie llama.cpp Port 8080 – laufen beide, ändere hier eine Adresse." },
+  ];
+  const prov = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[0];
+  const keyOf = (p) => store.get("key." + p.id, "");
+  const baseOf = (p) => (p.local ? store.get("url." + p.id, p.base) : p.base).replace(/\/+$/, "");
+  const modelOf = (p) => store.get("model." + p.id, p.def || "");
+  // Local programs go through the desktop app when there is one (no browser block, no CORS).
+  const fetchFor = (p) => (p.local ? ofetch : (...a) => fetch(...a));
+  const anthropicHeaders = (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" });
+
+  // one-time move from the old two-provider settings
+  if (store.get("routerKey", "") && !store.get("key.openrouter", "")) store.set("key.openrouter", store.get("routerKey", ""));
+  if (store.get("routerModel", "") && !store.get("model.openrouter", "")) store.set("model.openrouter", store.get("routerModel", ""));
+  if (store.get("ollamaModel", "") && !store.get("model.ollama", "")) store.set("model.ollama", store.get("ollamaModel", ""));
+  if (isMobile && prov(cfg.provider).local) cfg.provider = "openrouter";   // local programs need a computer
 
   const $ = (id) => document.getElementById(id);
   const ui = {
@@ -603,10 +640,10 @@
     canvas: $("orb"), ambient: $("ambient"), starters: $("starters"), chatSearch: $("chatSearch"), status: $("status"), statusText: $("statusText"),
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
-    settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), keyHint: $("keyHint"), keyLink: $("keyLink"), scrim: $("scrim"),
-    ollamaPane: $("ollamaPane"), ollamaModel: $("ollamaModel"), ollamaNote: $("ollamaNote"),
+    settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), scrim: $("scrim"),
+    provSel: $("provSel"), provNote: $("provNote"), modelSearch: $("modelSearch"), modelList: $("modelList"),
+    cloudList: $("cloudList"), localList: $("localList"), localSection: $("localSection"),
     updBanner: $("updBanner"), updBannerText: $("updBannerText"), updBtn: $("updBtn"), updNote: $("updNote"), verText: $("verText"),
-    routerPane: $("routerPane"), routerKey: $("routerKey"), routerSearch: $("routerSearch"), routerModels: $("routerModels"),
   };
 
   // ---------- conversation state ----------
@@ -746,13 +783,7 @@
     renderThread(isBusy() ? live : null, true);
   }
 
-  function renderPill() {
-    const remote = cfg.provider === "openrouter";
-    ui.pillDot.classList.toggle("remote", remote);
-    ui.pillText.textContent = remote ? cfg.routerModel.split("/").pop() : cfg.ollamaModel;
-  }
-
-  // ---------- providers (both stream text chunks) ----------
+  // ---------- streaming ----------
   async function* readLines(res) {
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -767,28 +798,30 @@
     if (buf) yield buf;
   }
 
-  // Safari blocks an https page (GitHub Pages) from reaching Ollama on this machine; the Mac version on localhost works.
-  const ollamaHint = () => location.protocol === "https:"
-    ? "Von der Online-Version aus blockiert Safari den Zugriff auf Ollama. Nutze am Mac die lokale Version: http://localhost:4180 (Einrichtung in der Anleitung auf GitHub)."
-    : "Ollama ist nicht erreichbar. Läuft die Ollama-App?";
+  // Safari blocks an https page (GitHub Pages) from reaching programs on this computer; the desktop app and the Mac version can.
+  const blocked = () => location.protocol === "https:" && !ofetchIsApp;
+  const localHint = (p) => blocked()
+    ? "Von der Online-Version aus blockiert der Browser lokale Programme. Nutze die Desktop-App oder die Mac-Version."
+    : p.name + " ist nicht erreichbar. Läuft das Programm? " + (p.hint || "");
 
-  async function* streamOllama(history, signal) {
+  async function* streamOllama(p, model, history, signal) {
     const body = (think) => JSON.stringify({
-      model: cfg.ollamaModel, stream: true,
+      model, stream: true,
       messages: [{ role: "system", content: systemPrompt() }, ...history],
       ...(think === undefined ? {} : { think }),
     });
+    const url = baseOf(p) + "/api/chat";
     let res;
     try {
-      res = await ofetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false), signal });
+      res = await ofetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body(false), signal });
       if (!res.ok) {
         const t = await res.text();
-        if (/think/i.test(t)) res = await ofetch(OLLAMA + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(undefined), signal });
+        if (/think/i.test(t)) res = await ofetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body(undefined), signal });
         else throw new Error(errMsg(t) || "Ollama-Fehler " + res.status);
       }
     } catch (e) {
       if (e.name === "AbortError") throw e;
-      if (e instanceof TypeError) throw new Error(ollamaHint());
+      if (e instanceof TypeError) throw new Error(localHint(p));
       throw e;
     }
     if (!res.ok) throw new Error(errMsg(await res.text()) || "Ollama-Fehler " + res.status);
@@ -802,34 +835,58 @@
     }
   }
 
-  async function* streamRouter(history, signal) {
-    if (!cfg.routerKey) throw new Error("Kein OpenRouter-API-Key hinterlegt. Trag ihn in den Einstellungen ein – unten in der Seitenleiste.");
-    let res;
-    try {
-      res = await fetch(ROUTER + "/chat/completions", {
-        method: "POST", signal,
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.routerKey, "X-Title": "Jarvis" },
-        body: JSON.stringify({ model: cfg.routerModel, stream: true, messages: [{ role: "system", content: systemPrompt() }, ...history] }),
-      });
-    } catch (e) {
+  async function post(p, url, headers, body, signal) {
+    try { return await fetchFor(p)(url, { method: "POST", signal, headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) }); }
+    catch (e) {
       if (e.name === "AbortError") throw e;
-      throw new Error("OpenRouter ist nicht erreichbar. Bist du online?");
+      throw new Error(p.local ? localHint(p) : p.name + " ist nicht erreichbar. Bist du online?");
     }
-    if (!res.ok) {
-      const t = await res.text();
-      if (res.status === 401) throw new Error("Der OpenRouter-API-Key ist ungültig.");
-      if (res.status === 402) throw new Error("Dein OpenRouter-Guthaben ist aufgebraucht.");
-      throw new Error("OpenRouter: " + (errMsg(t) || "Fehler " + res.status));
-    }
+  }
+  async function failed(p, res) {
+    const t = await res.text();
+    if (res.status === 401 || res.status === 403) return new Error("Der API-Key für " + p.name + " ist ungültig oder hat keinen Zugriff.");
+    if (res.status === 402) return new Error("Dein Guthaben bei " + p.name + " ist aufgebraucht.");
+    return new Error(p.name + ": " + (errMsg(t) || "Fehler " + res.status));
+  }
+
+  async function* streamOpenAI(p, model, history, signal) {
+    const key = keyOf(p);
+    const headers = key ? { "Authorization": "Bearer " + key } : {};
+    if (p.id === "openrouter") headers["X-Title"] = "Jarvis";
+    const res = await post(p, baseOf(p) + "/chat/completions", headers,
+      { model, stream: true, messages: [{ role: "system", content: systemPrompt() }, ...history] }, signal);
+    if (!res.ok) throw await failed(p, res);
     for await (const line of readLines(res)) {
-      if (!line.startsWith("data:")) continue;          // ": OPENROUTER PROCESSING" keep-alives
+      if (!line.startsWith("data:")) continue;          // keep-alive comments
       const payload = line.slice(5).trim();
       if (payload === "[DONE]") break;
       let obj; try { obj = JSON.parse(payload); } catch { continue; }
-      if (obj.error) throw new Error("OpenRouter: " + (obj.error.message || "Unbekannter Fehler"));
+      if (obj.error) throw new Error(p.name + ": " + (obj.error.message || obj.error));
       const c = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
       if (c) yield c;
     }
+  }
+
+  async function* streamAnthropic(p, model, history, signal) {
+    const res = await post(p, baseOf(p) + "/messages", anthropicHeaders(keyOf(p)),
+      { model, max_tokens: 4096, stream: true, system: systemPrompt(), messages: history }, signal);
+    if (!res.ok) throw await failed(p, res);
+    for await (const line of readLines(res)) {
+      if (!line.startsWith("data:")) continue;
+      let obj; try { obj = JSON.parse(line.slice(5)); } catch { continue; }
+      if (obj.type === "error") throw new Error(p.name + ": " + ((obj.error && obj.error.message) || "Fehler"));
+      if (obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") yield obj.delta.text;
+      if (obj.type === "message_stop") break;
+    }
+  }
+
+  async function* streamFor(history, signal) {
+    const p = prov(cfg.provider), model = modelOf(p);
+    if (!p.local && !keyOf(p)) throw new Error("Für " + p.name + " fehlt noch ein API-Key. Trag ihn in den Einstellungen ein – unten in der Seitenleiste.");
+    if (!model) throw new Error("Wähle oben rechts zuerst ein Modell.");
+    yield* p.kind === "ollama" ? streamOllama(p, model, history, signal)
+      : p.kind === "anthropic" ? streamAnthropic(p, model, history, signal)
+      : streamOpenAI(p, model, history, signal);
   }
 
   function errMsg(text) {
@@ -850,7 +907,7 @@
 
     controller = new AbortController();
     const history = messages.slice();
-    const gen = cfg.provider === "openrouter" ? streamRouter(history, controller.signal) : streamOllama(history, controller.signal);
+    const gen = streamFor(history, controller.signal);
     let reply = "";
     try {
       for await (const chunk of gen) {
@@ -1217,11 +1274,6 @@
     ui.speakBtn.setAttribute("aria-checked", String(cfg.speak));
   }
 
-  // ---------- settings popover ----------
-  let routerList = [];
-  const PICKS = ["openrouter/auto", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
-                 "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
-
   // ---------- panels: model (top right), settings and "what's new" (sidebar) ----------
   const panelTriggers = () => [[ui.models, ui.pill], [ui.settings, ui.settingsBtn], [ui.news, ui.newsBtn]];
   const anyPanel = () => !!document.querySelector(".settings.open");
@@ -1239,84 +1291,166 @@
   }
   function openModels() {
     if (!openPanel(ui.models, ui.pill)) return;
-    renderProvider();
-    loadOllamaModels();
-    if (!routerList.length) loadRouterModels();
+    showProvider();
+    probeLocals();
   }
-  function openSettings() {
+  function openSettings(focusId) {
     if (!openPanel(ui.settings, ui.settingsBtn)) return;
-    ui.routerKey.value = cfg.routerKey;
     renderVoices();
+    probeLocals();
+    const row = typeof focusId === "string" && ui.settings.querySelector('.prov[data-id="' + focusId + '"]');
+    if (row) { row.open = true; row.scrollIntoView({ block: "center" }); row.querySelector("input").focus(); }
   }
   ui.pill.addEventListener("click", openModels);
-  ui.settingsBtn.addEventListener("click", openSettings);
-  ui.keyLink.addEventListener("click", openSettings);
+  ui.settingsBtn.addEventListener("click", () => openSettings());
   ui.scrim.addEventListener("click", () => { closePanels(); closeSide(); });
 
-  document.querySelectorAll(".seg button").forEach((b) =>
-    b.addEventListener("click", () => { save("provider", b.dataset.provider); renderProvider(); }));
-  function renderProvider() {
-    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.provider === cfg.provider)));
-    ui.ollamaPane.hidden = cfg.provider !== "ollama";
-    ui.routerPane.hidden = cfg.provider !== "openrouter";
-    ui.keyHint.hidden = !!cfg.routerKey;
-    renderRouterModels();
-  }
+  // ---------- model picker and provider settings ----------
+  const PICKS = ["openrouter/auto", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5",
+                 "openai/gpt-5.5", "google/gemini-3.8-flash", "deepseek/deepseek-v4.1-flash"];
+  const modelCache = {};     // provider id -> [{ id, name }]
+  const localState = {};     // provider id -> true (running) | false (not found)
+  const statusEl = {};
 
-  async function loadOllamaModels() {
-    let names = [];
-    try {
-      const r = await ofetch(OLLAMA + "/api/tags");
-      names = ((await r.json()).models || []).map((m) => m.name).sort();
-      ui.ollamaNote.textContent = "Läuft komplett auf deinem Mac – kostenlos und privat.";
-    } catch {
-      ui.ollamaNote.textContent = ollamaHint();
-      if (location.protocol === "https:") {   // one click to the Mac version
-        const a = document.createElement("a");
-        a.href = "http://localhost:4180/"; a.textContent = " → Mac-Version öffnen"; a.target = "_blank"; a.rel = "noopener";
-        ui.ollamaNote.append(a);
-      }
+  async function fetchModels(p) {
+    const f = fetchFor(p), signal = AbortSignal.timeout(p.local ? 2000 : 8000);
+    if (p.kind === "ollama") {
+      const r = await f(baseOf(p) + "/api/tags", { signal });
+      return ((await r.json()).models || []).map((m) => ({ id: m.name, name: m.name })).sort((a, b) => a.id.localeCompare(b.id));
     }
-    if (!names.includes(cfg.ollamaModel)) names.unshift(cfg.ollamaModel);
-    ui.ollamaModel.replaceChildren(...names.map((n) => new Option(n, n, false, n === cfg.ollamaModel)));
+    const key = keyOf(p);
+    const headers = p.kind === "anthropic" ? anthropicHeaders(key) : key ? { "Authorization": "Bearer " + key } : {};
+    const r = await f(baseOf(p) + "/models", { headers, signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    return (j.data || j.models || [])
+      .filter((m) => !String(m.id).endsWith(":batch") && (!m.api || m.api === "chat") && (!m.type || m.type === "language" || m.type === "model")
+        && (!m.architecture || !m.architecture.output_modalities || m.architecture.output_modalities.includes("text")))
+      .map((m) => { const id = String(m.id).replace(/^models\//, ""); return { id, name: m.display_name || m.name || id }; });
   }
-  ui.ollamaModel.addEventListener("change", () => save("ollamaModel", ui.ollamaModel.value));
+  async function loadModels(p) {
+    if (modelCache[p.id] || (!p.local && p.kind === "anthropic" && !keyOf(p))) return;
+    try { modelCache[p.id] = await fetchModels(p); if (p.local) localState[p.id] = true; }
+    catch (e) { console.debug("Jarvis: " + p.name + " models:", e && e.message); if (p.local) localState[p.id] = false; else modelCache[p.id] = []; }
+    if (p.local) updateStatus(p);
+  }
+  async function probeLocals() {
+    if (isMobile) return;
+    await Promise.all(PROVIDERS.filter((p) => p.local).map(loadModels));
+    renderProvSel(); renderProvNote(); renderModelList();
+  }
 
-  async function loadRouterModels() {
-    try {
-      const r = await fetch(ROUTER + "/models");
-      routerList = ((await r.json()).data || [])
-        .filter((m) => !m.id.endsWith(":batch") && (!m.architecture || !m.architecture.output_modalities || m.architecture.output_modalities.includes("text")))
-        .map((m) => ({ id: m.id, name: m.name || m.id }));
-    } catch { routerList = []; }
-    renderRouterModels();
+  function renderPill() {
+    const p = prov(cfg.provider), m = modelOf(p);
+    ui.pillDot.classList.toggle("remote", !p.local);
+    ui.pillText.textContent = m ? m.split("/").pop() : "Modell wählen";
+    ui.pill.title = p.name + (m ? " · " + m : "");
   }
-  function renderRouterModels() {
-    const q = ui.routerSearch.value.trim().toLowerCase();
-    let list = q
-      ? routerList.filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)).slice(0, 8)
-      : PICKS.map((id) => routerList.find((m) => m.id === id) || { id, name: id });
-    if (!q && !list.some((m) => m.id === cfg.routerModel)) list = [{ id: cfg.routerModel, name: cfg.routerModel }, ...list];
-    ui.routerModels.replaceChildren(...list.map((m) => {
+
+  function renderProvSel() {
+    const group = (label, list) => {
+      const g = document.createElement("optgroup"); g.label = label;
+      g.append(...list.map((p) => new Option(p.name + (p.local
+        ? (localState[p.id] === false ? " – nicht gefunden" : "")
+        : (keyOf(p) ? "" : " – Key fehlt")), p.id)));
+      return g;
+    };
+    ui.provSel.replaceChildren(group("Cloud", PROVIDERS.filter((p) => !p.local)),
+      ...(isMobile ? [] : [group("Auf diesem Computer", PROVIDERS.filter((p) => p.local))]));
+    ui.provSel.value = cfg.provider;
+  }
+  function renderProvNote() {
+    const p = prov(cfg.provider), n = ui.provNote;
+    n.replaceChildren();
+    if (!p.local && !keyOf(p)) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.textContent = "In den Einstellungen eintragen";
+      b.addEventListener("click", () => openSettings(p.id));
+      n.append("Für " + p.name + " fehlt noch ein API-Key. ", b);
+    } else if (p.local && localState[p.id] === false) {
+      const a = document.createElement("a");
+      a.target = "_blank"; a.rel = "noopener";
+      if (blocked()) { a.href = "http://localhost:4180/"; a.textContent = "Mac-Version öffnen"; }
+      else { a.href = p.get; a.textContent = p.name + " installieren"; }
+      n.append(localHint(p) + " ", a);
+    }
+    n.hidden = !n.childNodes.length;
+  }
+  function renderModelList() {
+    const p = prov(cfg.provider), current = modelOf(p);
+    const all = modelCache[p.id];
+    const q = ui.modelSearch.value.trim().toLowerCase();
+    let list = q ? (all || []).filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+      : p.id === "openrouter" ? PICKS.map((id) => (all || []).find((m) => m.id === id) || { id, name: id })
+      : (all || []);
+    list = list.slice(0, 40);
+    if (!q && current && !list.some((m) => m.id === current)) list = [{ id: current, name: current }, ...list];
+    if (!list.length) {
+      const e = document.createElement("p"); e.className = "note";
+      e.textContent = all === undefined ? (p.local && localState[p.id] === false ? "" : "Modelle laden …")
+        : q ? "Kein Modell gefunden." : p.local ? "Noch kein Modell geladen. Lade eins in " + p.name + "." : "Keine Modelle gefunden.";
+      ui.modelList.replaceChildren(e); return;
+    }
+    ui.modelList.replaceChildren(...list.map((m) => {
       const b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "radio");
-      b.setAttribute("aria-checked", String(m.id === cfg.routerModel));
+      b.setAttribute("aria-checked", String(m.id === current));
       const t = document.createElement("span");
       const name = document.createElement("b"); name.textContent = m.name;
       const id = document.createElement("small"); id.textContent = m.id;
-      t.append(name, id);
-      const check = document.createElement("span"); check.className = "check"; check.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      t.append(name, ...(m.name !== m.id ? [id] : []));
+      const check = document.createElement("span"); check.className = "check"; check.innerHTML = svg(ICON.check);
       b.append(t, check);
-      b.addEventListener("click", () => { save("routerModel", m.id); renderRouterModels(); });
+      b.addEventListener("click", () => { store.set("model." + p.id, m.id); save("provider", p.id); renderModelList(); });
       return b;
     }));
-    if (q && !list.length) {
-      const p = document.createElement("p"); p.className = "note"; p.textContent = routerList.length ? "Kein Modell gefunden." : "Modellliste lädt …";
-      ui.routerModels.replaceChildren(p);
-    }
   }
-  ui.routerSearch.addEventListener("input", renderRouterModels);
-  ui.routerKey.addEventListener("input", () => save("routerKey", ui.routerKey.value.trim()));
+  async function showProvider() {
+    renderProvSel(); renderProvNote(); renderModelList();
+    const p = prov(cfg.provider);
+    await loadModels(p);
+    if (prov(cfg.provider) === p) { renderProvSel(); renderProvNote(); renderModelList(); }
+  }
+  ui.provSel.addEventListener("change", () => { save("provider", ui.provSel.value); ui.modelSearch.value = ""; showProvider(); });
+  ui.modelSearch.addEventListener("input", renderModelList);
+
+  // settings: one row per provider, opened to type a key or change a local address
+  function updateStatus(p) {
+    const st = statusEl[p.id]; if (!st) return;
+    const ok = p.local ? localState[p.id] === true : !!keyOf(p);
+    st.textContent = p.local ? (localState[p.id] === undefined ? "" : ok ? "läuft" : "nicht gefunden") : ok ? "Key gespeichert" : "";
+    st.classList.toggle("ok", ok);
+  }
+  function provRow(p) {
+    const d = document.createElement("details"); d.className = "prov"; d.dataset.id = p.id;
+    const sm = document.createElement("summary");
+    const nm = document.createElement("span"); nm.textContent = p.name;
+    const st = document.createElement("small"); statusEl[p.id] = st;
+    sm.append(nm, st);
+    sm.insertAdjacentHTML("beforeend", svg('<path d="m6 9 6 6 6-6"/>'));
+    const body = document.createElement("div"); body.className = "body";
+    const inp = document.createElement("input"); inp.spellcheck = false; inp.autocomplete = "off";
+    if (p.local) {
+      inp.value = baseOf(p); inp.setAttribute("aria-label", "Adresse von " + p.name);
+      inp.addEventListener("change", () => {
+        store.set("url." + p.id, inp.value.trim() || p.base); inp.value = baseOf(p);
+        delete modelCache[p.id]; delete localState[p.id]; updateStatus(p); loadModels(p).then(() => { renderProvSel(); renderPill(); });
+      });
+    } else {
+      inp.type = "password"; inp.placeholder = "API-Key"; inp.value = keyOf(p); inp.setAttribute("aria-label", "API-Key für " + p.name);
+      inp.addEventListener("input", () => { store.set("key." + p.id, inp.value.trim()); delete modelCache[p.id]; updateStatus(p); });
+    }
+    const note = document.createElement("p"); note.className = "note";
+    if (p.hint) note.append(p.hint + " ");
+    const a = document.createElement("a"); a.target = "_blank"; a.rel = "noopener";
+    a.href = p.local ? p.get : p.keyUrl; a.textContent = p.local ? "Installieren" : "Key holen";
+    note.append(a);
+    body.append(inp, note);
+    d.append(sm, body);
+    updateStatus(p);
+    return d;
+  }
+  ui.cloudList.replaceChildren(...PROVIDERS.filter((p) => !p.local).map(provRow));
+  ui.localList.replaceChildren(...PROVIDERS.filter((p) => p.local).map(provRow));
 
   // ---------- the orb ----------
   const ctx = ui.canvas.getContext("2d");
@@ -1455,10 +1589,15 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.20";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.21";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.21", date: "2026-11-09", items: [
+      "Viele Anbieter: Requesty, Vercel AI Gateway, Eden AI, Hugging Face, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek und xAI – jeweils mit eigenem Key",
+      "Lokale Programme neben Ollama: LM Studio, Jan, llama.cpp, vLLM und LocalAI – Jarvis erkennt sie von selbst",
+      "Einstellungen zeigen, welche Programme laufen, mit Link zum Installieren",
+    ] },
     { v: "1.20", date: "2026-11-09", items: [
       "Die Kugel taucht den Raum in warmes Licht – heller, wenn sie denkt und spricht",
       "Begrüßung zur Tageszeit, mit Datum und drei Vorschlägen zum Antippen",
@@ -1593,7 +1732,7 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
 
   // ---------- boot ----------
-  if (isMobile) document.querySelector(".seg").hidden = true;
+  if (isMobile) ui.localSection.hidden = true;
   renderHint();
   renderPill();
   renderSpeak();

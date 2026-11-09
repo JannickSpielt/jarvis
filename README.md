@@ -20,8 +20,8 @@
 - 🔊 **Antworten vorlesen** – Satz für Satz, mit einer deutschen Stimme deiner Wahl
 - 👋 **„Hey Jarvis“** – Auf Wunsch hört Jarvis zu und reagiert auf sein Weckwort
 - 🕘 **Verlauf** – Gespräche bleiben gespeichert und lassen sich wieder öffnen
-- 🧠 **Viele Modelle** – Über [OpenRouter](https://openrouter.ai): Claude, GPT, Gemini, DeepSeek und Hunderte mehr
-- 💻 **Lokal & privat** – Am Computer auch mit [Ollama](https://ollama.com) – kostenlos und ohne Cloud
+- 🧠 **Viele Anbieter** – OpenRouter, Requesty, Vercel AI Gateway, Eden AI, Hugging Face, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek und xAI, jeweils mit eigenem Key
+- 💻 **Lokal & privat** – Am Computer mit Ollama, LM Studio, Jan, llama.cpp, vLLM oder LocalAI – Jarvis erkennt sie von selbst
 
 Die Kugel zeigt dabei, was gerade passiert: Sie atmet ruhig, reagiert beim Zuhören auf deine Lautstärke, wirbelt beim Nachdenken und pulsiert beim Antworten.
 

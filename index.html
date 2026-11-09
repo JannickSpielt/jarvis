@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jarvis</title>
-<meta name="theme-color" content="#070504">
+<meta name="theme-color" content="#141312">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,21 +13,23 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
+  /* Quiet warm-graphite chrome; the orb is the one bright thing. Orange marks only the orb, send, live listening and selection. */
   :root {
-    --bg-center: #1a0f09;
-    --bg-edge: #070504;
-    --core: #ffe3c2;
+    --bg: #141312;
+    --side: #0f0e0d;
+    --panel: #1c1a18;
+    --raised: #262421;
+    --text: #efe9de;
+    --text-2: #aaa398;
+    --text-3: #8a847a;
+    --line: rgba(239, 233, 222, 0.08);
+    --line-strong: rgba(239, 233, 222, 0.16);
     --orange: #ff8a3d;
-    --ember: #e3570f;
-    --text: rgba(255, 245, 235, 0.93);
-    --text-dim: rgba(255, 240, 225, 0.42);
-    --line: rgba(255, 138, 61, 0.18);
-    --line-strong: rgba(255, 138, 61, 0.45);
-    --glass: rgba(255, 255, 255, 0.05);
-    --panel: rgba(24, 16, 11, 0.86);
-    --danger: #ff8c73;
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --on-orange: #1a0d05;
+    --danger: #e5484d;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
     color-scheme: dark;
   }
 
@@ -36,7 +38,7 @@
   html, body { height: 100%; overscroll-behavior: none; }
 
   body {
-    background: radial-gradient(ellipse 80% 70% at 50% 38%, var(--bg-center), var(--bg-edge) 70%), var(--bg-edge);
+    background: var(--bg);
     color: var(--text);
     font: 100%/1.5 system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -44,7 +46,8 @@
   }
 
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+  svg { flex: none; }
 
   .app {
     height: 100dvh;
@@ -56,42 +59,47 @@
   }
 
   /* ---------- top bar ---------- */
-  .top { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+  .top { display: flex; align-items: center; gap: 8px; min-height: 36px; }
   .brand {
-    font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
-    letter-spacing: 0.42em;
-    color: var(--orange);
+    font: 600 12px/1 var(--mono);
+    letter-spacing: 0.32em;
+    color: var(--text);
     margin-right: auto;
   }
   .pill {
-    display: inline-flex; align-items: center; gap: 7px;
-    height: 28px; padding: 0 12px;
-    border-radius: 999px;
-    background: var(--glass);
-    font-size: 12px; font-weight: 500;
-    color: rgba(255, 240, 225, 0.72);
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 32px; padding: 0 12px;
+    border-radius: 8px;
+    background: var(--raised);
+    font-size: 13px; font-weight: 500;
+    color: var(--text-2);
     max-width: 34vw;
+    transition: background-color 150ms var(--ease-out);
   }
   .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: #6fd08c; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: #4cc38a; }
   .dot.remote { background: var(--orange); }
   .icon-btn {
-    width: 32px; height: 32px; border-radius: 50%;
+    width: 32px; height: 32px; border-radius: 8px;
     display: grid; place-items: center;
-    color: rgba(255, 240, 225, 0.7);
+    color: var(--text-3);
+    transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
   }
   .icon-btn:disabled { opacity: 0.3; cursor: default; }
-  .icon-btn[aria-pressed="true"] { color: var(--orange); }
+  .icon-btn[aria-pressed="true"] { color: var(--text); }
+  #modeBtn[aria-pressed="true"] { background: var(--raised); }
   .chip {
-    height: 28px; padding: 0 11px; border-radius: 999px;
-    font-size: 12px; font-weight: 500; white-space: nowrap;
-    background: var(--glass); color: rgba(255, 240, 225, 0.55);
+    height: 32px; padding: 0 12px; border-radius: 8px;
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+    background: var(--raised); color: var(--text-2);
+    transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
   }
-  .chip[aria-pressed="true"] { background: rgba(255, 138, 61, 0.16); color: var(--orange); }
-  .press { transition: transform 160ms var(--ease-out), opacity 160ms var(--ease-out); }
-  .press:active:not(:disabled) { transform: scale(0.94); transition-duration: 90ms; }
+  .chip[aria-pressed="true"] { background: rgba(255, 138, 61, 0.14); color: var(--orange); }   /* live: listening for the wake word */
+  .press { transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+  .press:active:not(:disabled) { transform: scale(0.97); transition-duration: 90ms; }
   @media (hover: hover) and (pointer: fine) {
-    .icon-btn:hover:not(:disabled), .pill:hover { background: rgba(255, 255, 255, 0.08); }
+    .icon-btn:hover:not(:disabled) { background: var(--raised); color: var(--text-2); }
+    .pill:hover, .chip:hover { background: #2e2b28; }
   }
 
   /* ---------- stage ---------- */
@@ -100,20 +108,19 @@
   .stage > :not(.orb-wrap) { flex: none; }
   #orb { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; transform: translateZ(0); will-change: transform; }
 
+  /* signature: the state line in mono under the orb */
   .status {
-    display: flex; align-items: center; gap: 9px;
-    font: 600 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
-    color: rgba(255, 138, 61, 0.78);
-    margin: 4px 0 18px;
+    display: flex; align-items: center; gap: 8px;
+    font: 500 12px/16px var(--mono);
+    color: var(--text-3);
+    margin: 4px 0 16px;
   }
-  .status i { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); opacity: 0.5; transition: opacity 180ms ease; }
+  .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); opacity: 0.4; transition: opacity 180ms ease; }
   .status[data-busy="true"] i { opacity: 1; }
-  #statusText { transition: opacity 180ms ease; }
+  .status[data-busy="true"] { color: var(--text-2); }
 
   .said {
-    font-size: 13px; color: var(--text-dim);
+    font-size: 14px; line-height: 20px; color: var(--text-3);
     text-align: center; max-width: 520px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     min-height: 0;
@@ -123,15 +130,15 @@
     width: 100%; max-width: 560px;
     max-height: 30vh; overflow-y: auto;
     text-align: center;
-    font-size: 19px; line-height: 1.5; letter-spacing: -0.01em;
+    font-size: 20px; line-height: 1.5;
     white-space: pre-wrap; overflow-wrap: anywhere;
     scrollbar-width: none;
-    mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
     padding: 12px 4px;
   }
   .reply::-webkit-scrollbar { display: none; }
-  .reply.fresh { animation: settle 260ms var(--ease-out); }
-  @keyframes settle { from { opacity: 0; filter: blur(3px); transform: translateY(4px); } }
+  .reply.fresh { animation: settle 300ms var(--ease-out); }
+  @keyframes settle { from { opacity: 0; transform: translateY(8px); } }
 
   /* ---------- chat mode: small orb on top, the whole conversation below ---------- */
   .thread { display: none; }
@@ -140,25 +147,25 @@
   body.chat .said { display: none; }
   body.chat .reply { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }   /* stays for screen readers */
   body.chat .thread {
-    display: flex; flex-direction: column; gap: 18px;
+    display: flex; flex-direction: column; gap: 20px;
     flex: 1 1 0; min-height: 0; width: 100%; max-width: 600px;
     overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
-    padding: 20px 4px 14px;
-    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 14px), transparent 100%);
+    padding: 20px 4px 16px;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 16px), transparent 100%);
   }
   .thread::-webkit-scrollbar { display: none; }
-  .msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.55; }
+  .msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 24px; }
   .msg.me {
-    align-self: flex-end; max-width: 82%;
-    padding: 9px 15px; border-radius: 20px 20px 6px 20px;
-    background: rgba(255, 138, 61, 0.13); box-shadow: inset 0 0 0 1px var(--line);
+    align-self: flex-end; max-width: 80%;
+    padding: 8px 16px; border-radius: 16px 16px 4px 16px;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
   }
-  .msg.ai { align-self: flex-start; padding-left: 14px; box-shadow: inset 2px 0 0 var(--line-strong); }
+  .msg.ai { align-self: flex-start; max-width: 100%; }
 
   /* ---------- input ---------- */
-  .bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; }
+  .bottom { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 12px; }
   .error {
-    font-size: 12.5px; color: var(--danger); text-align: center; max-width: 520px;
+    font-size: 13px; line-height: 20px; color: var(--danger); text-align: center; max-width: 520px;
     opacity: 0; transform: translateY(4px);
     transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
     min-height: 1em;
@@ -168,13 +175,13 @@
   .bar {
     width: 100%; max-width: 580px;
     display: flex; align-items: flex-end; gap: 8px;
-    padding: 7px 7px 7px 18px;
-    border-radius: 25px;
-    background: rgba(255, 255, 255, 0.05);   /* no backdrop blur: only dark background behind it, and Safari flickers with it next to the animation */
-    box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transition: box-shadow 200ms ease;
+    padding: 8px 8px 8px 20px;
+    border-radius: 26px;
+    background: var(--panel);   /* no backdrop blur: Safari flickers with it next to the animation */
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: box-shadow 150ms var(--ease-out);
   }
-  .bar:focus-within, .bar[data-listening="true"] { box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+  .bar:focus-within, .bar[data-listening="true"] { box-shadow: inset 0 0 0 1px var(--line-strong); }
   #input {
     flex: 1; min-width: 0;
     background: none; border: 0; outline: none;
@@ -185,78 +192,81 @@
     overflow-y: auto; scrollbar-width: none;
   }
   #input::-webkit-scrollbar { display: none; }
-  #input::placeholder { color: rgba(255, 240, 225, 0.35); }
+  #input::placeholder { color: var(--text-3); }
   .round {
     width: 36px; height: 36px; border-radius: 50%; flex: none;
     display: grid; place-items: center;
   }
-  #mic { background: rgba(255, 138, 61, 0.13); color: var(--orange); }
-  #mic[aria-pressed="true"] { background: var(--orange); color: #1a0d05; }
-  #send { background: var(--orange); color: #1a0d05; transition: transform 160ms var(--ease-out), background 160ms ease, opacity 160ms ease; }
-  #send:disabled { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.4); cursor: default; }
-  .hint { font-size: 11px; color: rgba(255, 240, 225, 0.28); }
+  #mic { background: var(--raised); color: var(--text-2); }
+  #mic[aria-pressed="true"] { background: var(--orange); color: var(--on-orange); }
+  #send { background: var(--orange); color: var(--on-orange); transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+  #send:disabled { background: var(--raised); color: var(--text-3); cursor: default; }
+  .hint { font-size: 12px; line-height: 16px; color: var(--text-3); display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .hint span { display: inline-flex; align-items: center; gap: 4px; }
+  kbd {
+    font: 500 11px/16px var(--mono); color: var(--text-2);
+    padding: 0 4px; border-radius: 4px;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
+  }
 
   /* ---------- settings popover (anchored to the pill, top-right) ---------- */
   .scrim { position: fixed; inset: 0; z-index: 9; }
   .scrim[hidden] { display: none; }
-  .scrim.dim { background: rgba(0, 0, 0, 0.4); }
+  .scrim.dim { background: rgba(0, 0, 0, 0.5); }
   .settings {
     position: fixed; z-index: 10;
     top: calc(max(16px, env(safe-area-inset-top)) + 44px);
     right: max(16px, calc((100vw - 680px) / 2 + 20px));
     width: min(400px, calc(100vw - 32px));
-    max-height: calc(100dvh - 90px); overflow-y: auto;
-    padding: 18px;
-    border-radius: 18px;
+    max-height: calc(100dvh - 92px); overflow-y: auto;
+    padding: 20px;
+    border-radius: 16px;
     background: var(--panel);
-    -webkit-backdrop-filter: blur(30px) saturate(160%);
-    backdrop-filter: blur(30px) saturate(160%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 24px 60px rgba(0, 0, 0, 0.55);
+    box-shadow: inset 0 0 0 1px var(--line), 0 24px 64px rgba(0, 0, 0, 0.5);
     transform-origin: top right;
     transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
-    opacity: 0; transform: scale(0.96) translateY(-4px); visibility: hidden;
+    opacity: 0; transform: scale(0.97) translateY(-4px); visibility: hidden;
   }
   .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
-  .settings:not(.open) { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .settings h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .settings h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin-bottom: 16px; }
   .seg {
     display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
-    padding: 3px; border-radius: 10px; background: rgba(255, 255, 255, 0.06);
+    padding: 4px; border-radius: 10px; background: var(--side);
     margin-bottom: 16px;
   }
   .seg[hidden] { display: none; }
-  .seg button { height: 30px; border-radius: 8px; font-size: 13px; font-weight: 500; color: rgba(255, 240, 225, 0.6); }
-  .seg button[aria-pressed="true"] { background: rgba(255, 138, 61, 0.18); color: var(--text); }
-  label.field { display: block; font-size: 12px; color: var(--text-dim); margin: 0 0 6px; }
+  .seg button { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-3); transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+  .seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+  label.field { display: block; font-size: 12px; line-height: 16px; color: var(--text-3); margin: 0 0 8px; }
   .settings input, .settings select {
-    width: 100%; height: 36px; padding: 0 12px; margin-bottom: 14px;
-    border-radius: 10px; border: 0;
-    background: rgba(255, 255, 255, 0.07);
+    width: 100%; height: 36px; padding: 0 12px; margin-bottom: 16px;
+    border-radius: 8px; border: 0;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
     color: var(--text); font-size: 14px;
   }
-  .models { display: flex; flex-direction: column; gap: 2px; margin: -6px 0 14px; }
+  .models { display: flex; flex-direction: column; gap: 2px; margin: -8px 0 16px; }
   .models button {
-    display: flex; align-items: center; gap: 10px; text-align: left;
-    padding: 8px 10px; border-radius: 10px;
+    display: flex; align-items: center; gap: 12px; text-align: left;
+    padding: 8px 12px; border-radius: 8px;
   }
-  .models button[aria-checked="true"] { background: rgba(255, 138, 61, 0.12); }
-  .models b { font-weight: 500; font-size: 13.5px; display: block; }
-  .models small { font-size: 11.5px; color: var(--text-dim); }
+  .models button[aria-checked="true"] { background: var(--raised); }
+  .models b { font-weight: 500; font-size: 14px; line-height: 20px; display: block; }
+  .models small { font: 12px/16px var(--mono); color: var(--text-3); }
   .models .check { margin-left: auto; color: var(--orange); visibility: hidden; }
   .models button[aria-checked="true"] .check { visibility: visible; }
-  @media (hover: hover) and (pointer: fine) { .models button:hover { background: rgba(255, 255, 255, 0.06); } }
+  @media (hover: hover) and (pointer: fine) { .models button:hover { background: var(--raised); } }
   .row { display: flex; gap: 8px; }
   .row select { flex: 1; min-width: 0; }
-  .test { height: 36px; padding: 0 12px; border-radius: 10px; flex: none; font-size: 13px; font-weight: 500; background: rgba(255, 138, 61, 0.14); color: var(--orange); }
-  .chat-row { display: flex; align-items: center; border-radius: 10px; }
-  .chat-row[aria-current="true"] { background: rgba(255, 138, 61, 0.12); }
+  .test { height: 36px; padding: 0 12px; border-radius: 8px; flex: none; font-size: 13px; font-weight: 500; background: var(--raised); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .chat-row { display: flex; align-items: center; border-radius: 8px; transition: background-color 150ms var(--ease-out); }
+  .chat-row[aria-current="true"] { background: var(--raised); }
   .chat-row .open {
-    display: block; flex: 1; min-width: 0; text-align: left; padding: 8px 10px;
-    font-size: 13.5px; color: rgba(255, 240, 225, 0.8);
+    display: block; flex: 1; min-width: 0; text-align: left; padding: 8px 12px;
+    font-size: 14px; line-height: 20px; color: var(--text-2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-row[aria-current="true"] .open { color: var(--text); }
-  .chat-row .del { width: 30px; height: 30px; border-radius: 8px; flex: none; color: var(--text-dim); font-size: 16px; opacity: 0; }
+  .chat-row .del { width: 28px; height: 28px; margin-right: 4px; border-radius: 6px; flex: none; display: grid; place-items: center; color: var(--text-3); opacity: 0; }
   .chat-row[aria-current="true"] .del, .chat-row .del:focus-visible { opacity: 1; }
   @media (hover: hover) and (pointer: fine) { .chat-row:hover .del { opacity: 1; } }
 
@@ -265,29 +275,32 @@
   .side {
     width: 264px; flex: none;
     display: flex; flex-direction: column;
-    padding: max(16px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
-    background: rgba(255, 255, 255, 0.022);
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+    padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+    background: var(--side);
+    box-shadow: inset -1px 0 0 var(--line);
   }
-  .side-top { display: flex; flex-direction: column; gap: 16px; padding: 6px 6px 8px; }
+  .side-top { display: flex; flex-direction: column; gap: 16px; padding: 4px 4px 8px; }
+  .side-top .brand { padding: 8px 8px 0; }
   .side-new {
-    display: flex; align-items: center; gap: 9px;
-    height: 38px; padding: 0 12px; border-radius: 10px;
-    background: rgba(255, 138, 61, 0.12); color: var(--orange);
-    font-size: 13.5px; font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    height: 36px; padding: 0 12px; border-radius: 8px;
+    background: var(--raised); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 14px; font-weight: 500;
   }
-  .chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; padding: 0 2px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
-  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-dim); padding: 16px 10px 6px; }
-  .chat-list .note { padding: 12px 10px; }
-  .side-foot { padding: 10px 2px 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+  .side-new svg, .foot-btn svg { color: var(--text-3); }
+  .chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 0 4px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+  .group { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-3); padding: 24px 12px 8px; }
+  .chat-list .note { padding: 12px; }
+  .side-foot { display: flex; flex-direction: column; gap: 2px; padding: 8px 4px 0; box-shadow: inset 0 1px 0 var(--line); }
   .foot-btn {
-    display: flex; align-items: center; gap: 9px; width: 100%;
-    height: 36px; padding: 0 10px; border-radius: 10px;
-    font-size: 13px; color: rgba(255, 240, 225, 0.6);
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    height: 36px; padding: 0 12px; border-radius: 8px;
+    font-size: 14px; color: var(--text-2);
   }
   @media (hover: hover) and (pointer: fine) {
-    .foot-btn:hover, .side-new:hover { background: rgba(255, 255, 255, 0.06); }
-    .side-new:hover { background: rgba(255, 138, 61, 0.18); }
+    .foot-btn:hover, .chat-row:hover { background: var(--raised); }
+    .side-new:hover { background: #2e2b28; }
   }
   .grow { flex: 1; }
   /* Installed app on iOS 26 blurs ~35pt below the status bar: keep the top bar out of that zone. */
@@ -295,26 +308,27 @@
     .app, .side { padding-top: calc(env(safe-area-inset-top) + 40px); }
     .ptr { top: calc(env(safe-area-inset-top) + 40px); }
   }
-  .foot-btn .badge { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-left: auto; }
+  .foot-btn .badge { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); margin-left: auto; }
   .foot-btn .badge[hidden] { display: none; }
-  .foot-btn small { margin-left: auto; color: var(--text-dim); font-size: 11.5px; }
-  .news h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: var(--text); }
-  .news h3:first-of-type { margin-top: 4px; }
-  .news h3 small { font-weight: 400; color: var(--text-dim); margin-left: 6px; }
-  .news ul { padding-left: 18px; font-size: 13px; line-height: 1.5; color: rgba(255, 240, 225, 0.78); }
-  .news li { margin: 3px 0; }
+  .foot-btn small { margin-left: auto; font: 12px/16px var(--mono); color: var(--text-3); }
+  .foot-btn .badge + small { margin-left: 8px; }
+  .news h3 { font-size: 14px; line-height: 20px; font-weight: 500; margin: 20px 0 4px; color: var(--text); }
+  .news h3:first-of-type { margin-top: 0; }
+  .news h3 small { font: 12px/16px var(--mono); color: var(--text-3); margin-left: 8px; }
+  .news ul { padding-left: 16px; font-size: 13px; line-height: 20px; color: var(--text-2); }
+  .news li { margin: 4px 0; }
   .ptr {
-    position: fixed; z-index: 12; left: 50%; top: max(10px, env(safe-area-inset-top));
-    width: 38px; height: 38px; margin-left: -19px; border-radius: 50%;
+    position: fixed; z-index: 12; left: 50%; top: max(12px, env(safe-area-inset-top));
+    width: 40px; height: 40px; margin-left: -20px; border-radius: 50%;
     display: grid; place-items: center;
-    background: var(--panel); color: var(--orange);
+    background: var(--panel); color: var(--text-2);
     box-shadow: inset 0 0 0 1px var(--line), 0 8px 24px rgba(0, 0, 0, 0.45);
     transform: translateY(-64px); opacity: 0; pointer-events: none;
   }
-  .ptr.ready { background: var(--orange); color: #1a0d05; }
-  .ptr.back { transition: transform 260ms var(--ease-out), opacity 200ms ease; }
+  .ptr.ready { background: var(--orange); color: var(--on-orange); }
+  .ptr.back { transition: transform 300ms var(--ease-out), opacity 200ms ease; }
   .top .brand { margin-right: 0; }
-  .menu-btn { display: none; margin-left: -6px; }
+  .menu-btn { display: none; margin-left: -8px; }
   @media (min-width: 900px) {
     .top .brand { display: none; }
     .settings { right: max(16px, calc((100vw - 264px - 680px) / 2 + 20px)); }
@@ -323,28 +337,21 @@
     .side {
       position: fixed; z-index: 15; inset: 0 auto 0 0;
       width: min(300px, 86vw);
-      background: var(--panel);
-      -webkit-backdrop-filter: blur(30px) saturate(160%);
-      backdrop-filter: blur(30px) saturate(160%);
-      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.07), 24px 0 60px rgba(0, 0, 0, 0.5);
+      box-shadow: inset -1px 0 0 var(--line), 24px 0 64px rgba(0, 0, 0, 0.5);
       transform: translateX(-100%); visibility: hidden;
       transition: transform 260ms var(--ease-drawer), visibility 0s linear 260ms;
     }
     .side.open { transform: none; visibility: visible; transition: transform 300ms var(--ease-drawer); }
-    .side:not(.open) { -webkit-backdrop-filter: none; backdrop-filter: none; }
     .menu-btn { display: grid; }
   }
-  @media (hover: hover) and (pointer: fine) {
-    .chat-row:hover { background: rgba(255, 255, 255, 0.06); }
-    .chat-row .del:hover { color: var(--danger); }
-  }
+  @media (hover: hover) and (pointer: fine) { .chat-row .del:hover { color: var(--danger); } }
   @media (max-width: 440px) { .top .brand { display: none; } .pill { max-width: 30vw; } }
-  .note { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); }
-  .note a { color: var(--orange); }
+  .note { font-size: 12px; line-height: 18px; color: var(--text-3); }
+  .note a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
 
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  @media (max-height: 640px) { .reply { font-size: 17px; max-height: 24vh; } .status { margin-bottom: 10px; } }
+  @media (max-height: 640px) { .reply { font-size: 18px; max-height: 24vh; } .status { margin-bottom: 8px; } }
   @media (max-height: 520px) { .hint { display: none; } }
 
   @media (prefers-reduced-motion: reduce) and (max-width: 899px) {
@@ -357,10 +364,6 @@
     .settings { transform: none !important; }
     .press:active:not(:disabled) { transform: none; }
   }
-  @media (prefers-reduced-transparency: reduce) {
-    .settings { backdrop-filter: none; -webkit-backdrop-filter: none; }
-    .settings { background: #1c130d; }
-  }
 </style>
 </head>
 <body>
@@ -369,20 +372,20 @@
   <div class="side-top">
     <div class="brand">JARVIS</div>
     <button type="button" class="side-new press" id="sideNew">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       Neues Gespräch
     </button>
   </div>
   <nav class="chat-list" id="chatList" aria-label="Frühere Gespräche"></nav>
   <div class="side-foot">
     <button type="button" class="foot-btn press" id="newsBtn" aria-haspopup="dialog" aria-expanded="false">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/></svg>
       Was ist neu
       <i class="badge" id="newsBadge" hidden></i>
       <small id="versionLabel"></small>
     </button>
     <button type="button" class="foot-btn press" id="reloadBtn">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
       App neu laden
     </button>
   </div>
@@ -391,7 +394,7 @@
 <div class="app">
   <header class="top">
     <button class="icon-btn press menu-btn" id="menuBtn" aria-label="Gespräche" title="Gespräche" aria-expanded="false" aria-controls="side">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
     </button>
     <div class="brand">JARVIS</div>
     <span class="grow"></span>
@@ -400,10 +403,10 @@
     </button>
     <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
     <button class="icon-btn press" id="modeBtn" aria-pressed="false" title="Chat-Ansicht" aria-label="Chat-Ansicht">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>
     </button>
     <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
     </button>
   </header>
 
@@ -423,13 +426,13 @@
       <label for="input" class="sr-only">Nachricht an Jarvis</label>
       <textarea id="input" rows="1" placeholder="Frag Jarvis …" enterkeyhint="send"></textarea>
       <button type="button" class="round press" id="mic" aria-pressed="false" aria-label="Sprechen" title="Sprechen">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Z"/><path d="M18.5 11.5a.9.9 0 1 0-1.8 0 4.7 4.7 0 0 1-9.4 0 .9.9 0 1 0-1.8 0 6.5 6.5 0 0 0 5.6 6.4V20H8.8a.9.9 0 1 0 0 1.8h6.4a.9.9 0 1 0 0-1.8h-2.3v-2.1a6.5 6.5 0 0 0 5.6-6.4Z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
       </button>
       <button type="submit" class="round press" id="send" aria-label="Senden" title="Senden" disabled>
-        <svg id="sendIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        <svg id="sendIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
       </button>
     </form>
-    <p class="hint" id="hint">Enter senden · Klick auf die Kugel zum Sprechen · Esc stoppt</p>
+    <p class="hint" id="hint"></p>
   </footer>
 </div>
 </div>
@@ -440,7 +443,7 @@
 </section>
 
 <div class="ptr" id="ptr" aria-hidden="true">
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
 </div>
 <div class="scrim" id="scrim" hidden></div>
 <section class="settings" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
@@ -465,7 +468,7 @@
     <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
   </div>
 
-  <label class="field" for="voice" style="margin-top:18px">Stimme</label>
+  <label class="field" for="voice" style="margin-top:24px">Stimme</label>
   <div class="row">
     <select id="voice"></select>
     <button type="button" class="test press" id="voiceTest">Probehören</button>
@@ -788,7 +791,7 @@
       const open = document.createElement("button"); open.type = "button"; open.className = "open";
       open.textContent = c.title; open.title = c.title;
       open.addEventListener("click", () => { openChat(c.id); closeSide(); });
-      const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "×";
+      const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
       del.setAttribute("aria-label", "Gespräch löschen: " + c.title);
       del.addEventListener("click", () => {
         chats = chats.filter((x) => x.id !== c.id); persistChats();
@@ -983,9 +986,15 @@
 
   // Touch devices have no Enter/Esc keys: show only what applies there.
   function renderHint() {
-    ui.hint.textContent = isMobile
-      ? (cfg.wake ? "Sag „Hey Jarvis“ … oder tippe auf die Kugel" : "Tippe auf die Kugel, um zu sprechen")
-      : (cfg.wake ? "Sag „Hey Jarvis“ … · Enter senden · Esc stoppt" : "Enter senden · Shift+Enter neue Zeile · Klick auf die Kugel zum Sprechen");
+    if (isMobile) { ui.hint.textContent = cfg.wake ? "Sag „Hey Jarvis“ oder tippe auf die Kugel" : "Tippe auf die Kugel, um zu sprechen"; return; }
+    const item = (keys, label) => {
+      const s = document.createElement("span");
+      keys.forEach((k) => { const kb = document.createElement("kbd"); kb.textContent = k; s.append(kb); });
+      s.append(label); return s;
+    };
+    ui.hint.replaceChildren(
+      ...(cfg.wake ? [Object.assign(document.createElement("span"), { textContent: "Sag „Hey Jarvis“" })] : []),
+      item(["↵"], "senden"), item(["⇧", "↵"], "neue Zeile"), item(["Esc"], "stoppen"));
   }
 
   function toggleMic() {
@@ -1114,7 +1123,7 @@
       const name = document.createElement("b"); name.textContent = m.name;
       const id = document.createElement("small"); id.textContent = m.id;
       t.append(name, id);
-      const check = document.createElement("span"); check.className = "check"; check.textContent = "✓";
+      const check = document.createElement("span"); check.className = "check"; check.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
       b.append(t, check);
       b.addEventListener("click", () => { save("routerModel", m.id); renderRouterModels(); });
       return b;
@@ -1262,10 +1271,15 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.14";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.15";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.15", date: "2026-11-09", items: [
+      "Ruhigeres Design: Orange leuchtet nur noch dort, wo es etwas bedeutet – die Kugel steht im Mittelpunkt",
+      "Einheitliche Abstände, Schriftgrößen und Symbole",
+      "Tastenkürzel als kleine Tasten unter dem Eingabefeld",
+    ] },
     { v: "1.14", date: "2026-11-09", items: [
       "Chat-Ansicht: Sprechblasen-Symbol oben schaltet zwischen Kugel und ganzem Verlauf um",
       "Das Eingabefeld wächst bei langen Texten mit, Shift+Enter macht eine neue Zeile",

@@ -410,6 +410,14 @@
   #models .models { max-height: min(320px, 50dvh); overflow-y: auto; margin: 8px -4px 0; padding: 0 4px; }
   #models input { margin-bottom: 0; }
   #models select { margin-bottom: 12px; }
+  .sect { border-radius: 10px; background: var(--side); box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 4px; }
+  .sect > summary { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; cursor: pointer; list-style: none; font-size: 14px; font-weight: 500; }
+  .sect > summary::-webkit-details-marker { display: none; }
+  .sect > summary small { margin-left: auto; font: 12px/16px var(--mono); color: var(--text-3); }
+  .sect > summary svg { color: var(--text-3); transition: transform 150ms var(--ease-out); }
+  .sect[open] > summary svg { transform: rotate(180deg); }
+  .sect-body { padding: 0 8px 8px; }
+  .sect-body .note { padding: 0 4px; }
   .provs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
   .prov { border-radius: 8px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
   .prov summary { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; cursor: pointer; list-style: none; font-size: 14px; }
@@ -536,15 +544,21 @@
 
 <section class="settings sheet" id="settings" role="dialog" aria-label="Einstellungen" aria-modal="false">
   <h2>Einstellungen</h2>
-  <label class="field">Cloud-Anbieter</label>
-  <div class="provs" id="cloudList"></div>
-  <p class="note">Keys bleiben nur in diesem Browser gespeichert und gehen direkt an den jeweiligen Anbieter. Abgerechnet wird dort pro Nutzung.</p>
-
-  <div id="localSection">
-    <label class="field" style="margin-top:24px">Lokale Programme</label>
-    <div class="provs" id="localList"></div>
-    <p class="note">Laufen kostenlos und privat auf diesem Computer. Jarvis erkennt sie von selbst, sobald sie gestartet sind.</p>
-  </div>
+  <label class="field">Modelle</label>
+  <details class="sect" id="cloudSect">
+    <summary><span>Cloud-Anbieter</span><small id="cloudCount"></small><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="sect-body">
+      <div class="provs" id="cloudList"></div>
+      <p class="note">Keys bleiben nur in diesem Browser gespeichert und gehen direkt an den jeweiligen Anbieter. Abgerechnet wird dort pro Nutzung.</p>
+    </div>
+  </details>
+  <details class="sect" id="localSection">
+    <summary><span>Lokale Programme</span><small id="localCount"></small><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="sect-body">
+      <div class="provs" id="localList"></div>
+      <p class="note">Laufen kostenlos und privat auf diesem Computer. Jarvis erkennt sie von selbst, sobald sie gestartet sind.</p>
+    </div>
+  </details>
 
   <label class="field" style="margin-top:24px">Kugel</label>
   <div class="choice" role="radiogroup" aria-label="Aussehen der Kugel">
@@ -1313,7 +1327,7 @@
     renderVoices();
     probeLocals();
     const row = typeof focusId === "string" && ui.settings.querySelector('.prov[data-id="' + focusId + '"]');
-    if (row) { row.open = true; row.scrollIntoView({ block: "center" }); row.querySelector("input").focus(); }
+    if (row) { row.closest(".sect").open = true; row.open = true; row.scrollIntoView({ block: "center" }); row.querySelector("input").focus(); }
   }
   ui.pill.addEventListener("click", openModels);
   ui.settingsBtn.addEventListener("click", () => openSettings());
@@ -1433,6 +1447,10 @@
     const ok = p.local ? localState[p.id] === true : !!keyOf(p);
     st.textContent = p.local ? (localState[p.id] === undefined ? "" : ok ? "läuft" : "nicht gefunden") : ok ? "Key gespeichert" : "";
     st.classList.toggle("ok", ok);
+    const clouds = PROVIDERS.filter((x) => !x.local), locals = PROVIDERS.filter((x) => x.local);
+    $("cloudCount").textContent = clouds.filter(keyOf).length + " von " + clouds.length + " verbunden";
+    const running = locals.filter((x) => localState[x.id]).length;
+    $("localCount").textContent = locals.some((x) => localState[x.id] !== undefined) ? running + " von " + locals.length + " laufen" : "";
   }
   function provRow(p) {
     const d = document.createElement("details"); d.className = "prov"; d.dataset.id = p.id;
@@ -1660,10 +1678,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.22";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.23";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.23", date: "2026-11-09", items: ["Einstellungen kompakter: Cloud-Anbieter und lokale Programme lassen sich auf- und zuklappen"] },
     { v: "1.22", date: "2026-11-09", items: ["Einstellungen › Kugel: neben der Glut gibt es jetzt eine flauschige Fellkugel, die sich beim Zuhören und Sprechen aufplustert"] },
     { v: "1.21", date: "2026-11-09", items: [
       "Viele Anbieter: Requesty, Vercel AI Gateway, Eden AI, Hugging Face, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek und xAI – jeweils mit eigenem Key",

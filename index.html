@@ -88,18 +88,11 @@
   .icon-btn:disabled { opacity: 0.3; cursor: default; }
   .icon-btn[aria-pressed="true"] { color: var(--text); }
   #modeBtn[aria-pressed="true"] { background: var(--raised); }
-  .chip {
-    height: 32px; padding: 0 12px; border-radius: 8px;
-    font-size: 13px; font-weight: 500; white-space: nowrap;
-    background: var(--raised); color: var(--text-2);
-    transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
-  }
-  .chip[aria-pressed="true"] { background: rgba(255, 138, 61, 0.14); color: var(--orange); }   /* live: listening for the wake word */
   .press { transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
   .press:active:not(:disabled) { transform: scale(0.97); transition-duration: 90ms; }
   @media (hover: hover) and (pointer: fine) {
     .icon-btn:hover:not(:disabled) { background: var(--raised); color: var(--text-2); }
-    .pill:hover, .chip:hover { background: #2e2b28; }
+    .pill:hover { background: #2e2b28; }
   }
 
   /* ---------- stage ---------- */
@@ -248,6 +241,20 @@
   .seg[hidden] { display: none; }
   .seg button { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-3); transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
   .seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+  .toggles { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    height: 40px; padding: 0 12px; border-radius: 8px;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 14px; color: var(--text); text-align: left;
+  }
+  .toggle i { position: relative; width: 32px; height: 20px; border-radius: 10px; flex: none; background: #3a3632; transition: background-color 150ms var(--ease-out); }
+  .toggle i::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--text); transition: transform 150ms var(--ease-out);
+  }
+  .toggle[aria-checked="true"] i { background: var(--orange); }
+  .toggle[aria-checked="true"] i::after { transform: translateX(12px); background: var(--on-orange); }
   label.field { display: block; font-size: 12px; line-height: 16px; color: var(--text-3); margin: 0 0 8px; }
   .settings input, .settings select {
     width: 100%; height: 36px; padding: 0 12px; margin-bottom: 16px;
@@ -412,12 +419,8 @@
     <button class="pill press" id="pill" aria-haspopup="dialog" aria-expanded="false" title="Modell und Anbieter ändern">
       <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
     </button>
-    <button class="chip press" id="wakeBtn" aria-pressed="false" title="Auf „Hey Jarvis“ reagieren">Hey Jarvis</button>
     <button class="icon-btn press" id="modeBtn" aria-pressed="false" title="Chat-Ansicht" aria-label="Chat-Ansicht">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>
-    </button>
-    <button class="icon-btn press" id="speakBtn" aria-pressed="true" title="Antworten vorlesen" aria-label="Antworten vorlesen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="speakWaves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
     </button>
   </header>
 
@@ -480,7 +483,12 @@
     <p class="note">Der Key bleibt nur in diesem Browser gespeichert und geht direkt an OpenRouter. Abgerechnet wird pro Nutzung; einen Key bekommst du unter <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
   </div>
 
-  <label class="field" for="voice" style="margin-top:24px">Stimme</label>
+  <label class="field" style="margin-top:24px">Sprache</label>
+  <div class="toggles">
+    <button type="button" class="toggle" id="wakeBtn" role="switch" aria-checked="false"><span>Auf „Hey Jarvis“ reagieren</span><i></i></button>
+    <button type="button" class="toggle" id="speakBtn" role="switch" aria-checked="true"><span>Antworten vorlesen</span><i></i></button>
+  </div>
+  <label class="field" for="voice">Stimme</label>
   <div class="row">
     <select id="voice"></select>
     <button type="button" class="test press" id="voiceTest">Probehören</button>
@@ -998,7 +1006,7 @@
 
   function setWake(on) {
     save("wake", on);
-    ui.wakeBtn.setAttribute("aria-pressed", String(on));
+    ui.wakeBtn.setAttribute("aria-checked", String(on));
     renderHint();
     if (on) startWake();
     else { endAwait(); if (recogMode === "wake" && recog) { const r = recog; recog = null; recogMode = ""; r.onend = null; r.abort(); } }
@@ -1062,9 +1070,7 @@
     renderSpeak();
   });
   function renderSpeak() {
-    ui.speakBtn.setAttribute("aria-pressed", String(cfg.speak));
-    ui.speakBtn.title = cfg.speak ? "Antworten vorlesen: an" : "Antworten vorlesen: aus";
-    document.getElementById("speakWaves").style.opacity = cfg.speak ? "1" : "0.25";
+    ui.speakBtn.setAttribute("aria-checked", String(cfg.speak));
   }
 
   // ---------- settings popover ----------
@@ -1291,10 +1297,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.16";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.17";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.17", date: "2026-11-09", items: ["„Hey Jarvis“ und „Antworten vorlesen“ sind jetzt Schalter in den Einstellungen – oben bleiben nur Modell und Ansicht"] },
     { v: "1.16", date: "2026-11-09", items: [
       "Einstellungen › Version: „Nach Updates suchen“",
       "Die Desktop-App prüft beim Start, ob es eine neue App-Version gibt, und installiert sie auf Knopfdruck",

@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Jarvis</title>
+<style>html, body { margin: 0; height: 100%; background: #070504; color: #ffe3c2; font: 14px system-ui; display: grid; place-items: center; }</style>
+<script>
+// Jarvis desktop: load the current web version from GitHub, keep a copy for offline starts,
+// and fall back to the copy bundled with the app. The page runs on the app's own origin,
+// so Ollama is reached through the app (no Safari block, no CORS).
+(async () => {
+  const SITE = "https://jannickspielt.github.io/jarvis/";
+  const KEY = "jarvis.desktopCache";
+  let html = "";
+  try {
+    const r = await fetch(SITE + "index.html", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (r.ok) html = await r.text();
+    if (html) try { localStorage.setItem(KEY, html); } catch {}
+  } catch {}
+  if (!html) try { html = localStorage.getItem(KEY) || ""; } catch {}
+  if (!html) html = await (await fetch("app.html")).text();
+  html = html.replace(/<head>/i, '<head><base href="' + SITE + '">');   // icons and manifest come from GitHub
+  document.open(); document.write(html); document.close();
+})();
+</script>

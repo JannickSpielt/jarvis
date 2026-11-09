@@ -49,18 +49,18 @@
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
   svg { flex: none; }
 
+  .main { flex: 1; min-width: 0; height: 100dvh; display: flex; flex-direction: column; position: relative; overflow: hidden; }
   .app {
-    height: 100dvh;
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    flex: 1; min-width: 0;   /* fixed column width: not sized by the reply text */
+    flex: 1; min-height: 0; width: 100%;   /* fixed column width: not sized by the reply text */
     max-width: 680px;
     margin: 0 auto;
-    padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: 0 20px max(20px, env(safe-area-inset-bottom));
   }
 
   /* ---------- top bar ---------- */
-  .top { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+  .top { display: flex; align-items: center; gap: 8px; padding: max(16px, env(safe-area-inset-top)) 20px 0; position: relative; z-index: 1; }
   .brand {
     font: 600 12px/1 var(--mono);
     letter-spacing: 0.32em;
@@ -100,6 +100,13 @@
   .stage { display: flex; flex-direction: column; align-items: center; min-height: 0; }
   .orb-wrap { position: relative; width: 100%; flex: 1 1 0; min-height: 120px; max-height: 420px; }
   .stage > :not(.orb-wrap) { flex: none; }
+  /* the orb lights the room a little; brighter while it thinks or speaks */
+  .ambient {
+    position: absolute; left: 50%; top: 50%;
+    width: 1200px; height: 1200px; margin: -600px 0 0 -600px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 138, 61, 0.10), rgba(255, 138, 61, 0.035) 45%, rgba(255, 138, 61, 0));
+    pointer-events: none; opacity: 0.7; will-change: opacity;
+  }
   #orb { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; transform: translateZ(0); will-change: transform; }
 
   /* signature: the state line in mono under the orb */
@@ -113,6 +120,15 @@
   .status[data-busy="true"] i { opacity: 1; }
   .status[data-busy="true"] { color: var(--text-2); }
 
+  .said.date { font: 500 12px/16px var(--mono); color: var(--text-3); }
+  .starters { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 560px; margin-top: 16px; }
+  .starters[hidden] { display: none; }
+  .starter {
+    height: 32px; padding: 0 12px; border-radius: 8px;
+    background: var(--panel); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 13px; color: var(--text-2);
+  }
+  @media (hover: hover) and (pointer: fine) { .starter:hover { background: var(--raised); color: var(--text); } }
   .said {
     font-size: 14px; line-height: 20px; color: var(--text-3);
     text-align: center; max-width: 520px;
@@ -136,7 +152,7 @@
 
   /* ---------- chat mode: small orb on top, the whole conversation below ---------- */
   .thread { display: none; }
-  body.chat .orb-wrap { flex: none; height: 96px; min-height: 0; }
+  body.chat .orb-wrap { flex: none; height: 112px; min-height: 0; }
   body.chat .status { margin: 0 0 4px; }
   body.chat .said { display: none; }
   body.chat .reply { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }   /* stays for screen readers */
@@ -148,7 +164,19 @@
     mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 16px), transparent 100%);
   }
   .thread::-webkit-scrollbar { display: none; }
-  .msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 24px; }
+  .msg { overflow-wrap: anywhere; font-size: 16px; line-height: 24px; }
+  .msg.me { white-space: pre-wrap; }
+  .md p, .md ul, .md ol, .md pre { margin: 0 0 12px; }
+  .md > :last-child { margin-bottom: 0; }
+  .md ul, .md ol { padding-left: 20px; }
+  .md li { margin: 4px 0; }
+  .md strong { font-weight: 600; }
+  .md code { font: 14px/20px var(--mono); padding: 1px 4px; border-radius: 4px; background: var(--raised); }
+  .md pre { padding: 12px 16px; border-radius: 10px; background: var(--side); box-shadow: inset 0 0 0 1px var(--line); overflow-x: auto; }
+  .md pre code { padding: 0; background: none; font-size: 13px; white-space: pre; }
+  .acts { display: flex; gap: 4px; margin: 8px 0 0 -6px; }
+  .act { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: var(--text-3); }
+  @media (hover: hover) and (pointer: fine) { .act:hover { background: var(--raised); color: var(--text-2); } }
   .msg.me {
     align-self: flex-end; max-width: 80%;
     padding: 8px 16px; border-radius: 16px 16px 4px 16px;
@@ -196,6 +224,10 @@
   #send { background: var(--orange); color: var(--on-orange); transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
   #send:disabled { background: var(--raised); color: var(--text-3); cursor: default; }
   .hint { font-size: 12px; line-height: 16px; color: var(--text-3); display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  @media (hover: hover) and (pointer: fine) {
+    .hint { opacity: 0; visibility: hidden; transition: opacity 150ms var(--ease-out), visibility 0s linear 150ms; }
+    .hint.show { opacity: 1; visibility: visible; transition-delay: 0s; }
+  }
   .hint span { display: inline-flex; align-items: center; gap: 4px; }
   .upd-banner {
     display: inline-flex; align-items: center; gap: 8px;
@@ -221,7 +253,7 @@
   .settings {
     position: fixed; z-index: 10;
     top: calc(max(16px, env(safe-area-inset-top)) + 44px);
-    right: max(16px, calc((100vw - 680px) / 2 + 20px));
+    right: 16px;
     width: min(400px, calc(100vw - 32px));
     max-height: calc(100dvh - 92px); overflow-y: auto;
     padding: 20px;
@@ -304,7 +336,14 @@
     background: var(--side);
     box-shadow: inset -1px 0 0 var(--line);
   }
-  .side-top { display: flex; flex-direction: column; gap: 16px; padding: 4px 4px 8px; }
+  .side-top { display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 8px; }
+  .side-search {
+    height: 32px; padding: 0 12px; border: 0; border-radius: 8px;
+    background: var(--panel); box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--text); font: inherit; font-size: 14px; outline: none;
+  }
+  .side-search::placeholder { color: var(--text-3); }
+  .side-search:focus { box-shadow: inset 0 0 0 1px var(--line-strong); }
   .side-top .brand { padding: 8px 8px 0; }
   .side-new {
     display: flex; align-items: center; gap: 8px;
@@ -330,7 +369,7 @@
   .grow { flex: 1; }
   /* Installed app on iOS 26 blurs ~35pt below the status bar: keep the top bar out of that zone. */
   @media (display-mode: standalone) {
-    .app, .side { padding-top: calc(env(safe-area-inset-top) + 40px); }
+    .top, .side { padding-top: calc(env(safe-area-inset-top) + 40px); }
     .ptr { top: calc(env(safe-area-inset-top) + 40px); }
   }
   .foot-btn .badge { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); margin-left: auto; }
@@ -356,7 +395,6 @@
   .menu-btn { display: none; margin-left: -8px; }
   @media (min-width: 900px) {
     .top .brand { display: none; }
-    .settings { right: max(16px, calc((100vw - 264px - 680px) / 2 + 20px)); }
   }
   @media (max-width: 899px) {
     .side {
@@ -403,6 +441,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       Neues Gespräch
     </button>
+    <input class="side-search" id="chatSearch" type="search" placeholder="Suchen" aria-label="Gespräche durchsuchen" spellcheck="false" autocomplete="off">
   </div>
   <nav class="chat-list" id="chatList" aria-label="Frühere Gespräche"></nav>
   <div class="side-foot">
@@ -423,7 +462,7 @@
   </div>
 </aside>
 
-<div class="app">
+<div class="main">
   <header class="top">
     <button class="icon-btn press menu-btn" id="menuBtn" aria-label="Gespräche" title="Gespräche" aria-expanded="false" aria-controls="side">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
@@ -437,15 +476,17 @@
       <i class="dot" id="pillDot"></i><span id="pillText">qwen3.5:4b</span>
     </button>
   </header>
-
+<div class="app">
   <main class="stage">
     <div class="orb-wrap">
+      <div class="ambient" id="ambient" aria-hidden="true"></div>
       <canvas id="orb" aria-label="Jarvis – klicken zum Sprechen" role="button" tabindex="0"></canvas>
     </div>
     <div class="status" id="status" aria-live="polite"><i></i><span id="statusText">Bereit</span></div>
     <p class="said" id="said"></p>
     <div class="reply" id="reply" aria-live="polite"></div>
     <div class="thread" id="thread" aria-label="Gesprächsverlauf"></div>
+    <div class="starters" id="starters" aria-label="Vorschläge"></div>
   </main>
 
   <footer class="bottom">
@@ -463,6 +504,7 @@
     </form>
     <p class="hint" id="hint"></p>
   </footer>
+</div>
 </div>
 </div>
 
@@ -558,7 +600,7 @@
     side: $("side"), menuBtn: $("menuBtn"), sideNew: $("sideNew"), reloadBtn: $("reloadBtn"), chatList: $("chatList"),
     newsBtn: $("newsBtn"), newsBadge: $("newsBadge"), versionLabel: $("versionLabel"), news: $("news"), newsList: $("newsList"),
     voice: $("voice"), voiceTest: $("voiceTest"),
-    canvas: $("orb"), status: $("status"), statusText: $("statusText"),
+    canvas: $("orb"), ambient: $("ambient"), starters: $("starters"), chatSearch: $("chatSearch"), status: $("status"), statusText: $("statusText"),
     said: $("said"), reply: $("reply"), error: $("error"),
     form: $("form"), input: $("input"), mic: $("mic"), send: $("send"), sendIcon: $("sendIcon"), hint: $("hint"),
     settings: $("settings"), models: $("models"), settingsBtn: $("settingsBtn"), keyHint: $("keyHint"), keyLink: $("keyLink"), scrim: $("scrim"),
@@ -575,12 +617,48 @@
   let micLevel = 0;
 
   const firstName = "";         // set a name here if you like
-  const systemPrompt =
+  const systemPrompt = () =>
     "Du bist Jarvis, ein persönlicher KI-Assistent" + (firstName ? " von " + firstName : "") + ". " +
     "Antworte auf Deutsch, außer der Nutzer schreibt in einer anderen Sprache. Sei kurz, freundlich und direkt. " +
-    "Deine Antworten erscheinen als Text unter einer animierten Kugel: verwende kein Markdown, keine Tabellen, " +
-    "keine Überschriften und keine Aufzählungszeichen.";
-  const greeting = "Hallo. Wie kann ich helfen?";
+    (cfg.mode === "chat"
+      ? "Deine Antworten erscheinen in einem Chat: kurzes Markdown ist erlaubt (fett, Listen, Code-Blöcke), aber keine Tabellen."
+      : "Deine Antworten erscheinen als Text unter einer animierten Kugel: verwende kein Markdown, keine Tabellen, " +
+        "keine Überschriften und keine Aufzählungszeichen.");
+
+  // Small Markdown subset for chat mode. Everything is escaped first; only these tags are produced.
+  function md(src) {
+    const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const inline = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    const LIST = /^\s*([-*•]|\d+\.)\s+/, BLOCK = /^(```|#{1,6}\s)/;
+    const lines = src.split("\n"), out = [];
+    for (let i = 0; i < lines.length;) {
+      const l = lines[i];
+      if (/^```/.test(l)) {
+        const buf = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+        i++; out.push("<pre><code>" + esc(buf.join("\n")) + "</code></pre>"); continue;
+      }
+      if (LIST.test(l)) {
+        const tag = /^\s*\d+\./.test(l) ? "ol" : "ul", items = [];
+        while (i < lines.length && LIST.test(lines[i])) items.push("<li>" + inline(lines[i++].replace(LIST, "")) + "</li>");
+        out.push("<" + tag + ">" + items.join("") + "</" + tag + ">"); continue;
+      }
+      if (/^#{1,6}\s/.test(l)) { out.push("<p><strong>" + inline(l.replace(/^#+\s+/, "")) + "</strong></p>"); i++; continue; }
+      if (!l.trim()) { i++; continue; }
+      const buf = [];
+      while (i < lines.length && lines[i].trim() && !BLOCK.test(lines[i]) && !LIST.test(lines[i])) buf.push(inline(lines[i++]));
+      out.push("<p>" + buf.join("<br>") + "</p>");
+    }
+    return out.join("");
+  }
+  console.assert(md("**a** `b`\n- x\n- y\n\n<i>") === "<p><strong>a</strong> <code>b</code></p><ul><li>x</li><li>y</li></ul><p>&lt;i&gt;</p>", "Jarvis: markdown check failed");
+  const plain = (t) => t.replace(/```[^\n]*\n?/g, "").replace(/\*\*|`/g, "").replace(/^#{1,6}\s+/gm, "").replace(/^\s*[-*]\s+/gm, "• ");
+  const greeting = () => {
+    const h = new Date().getHours();
+    return (h < 5 || h >= 23 ? "Noch wach?" : h < 11 ? "Guten Morgen." : h < 18 ? "Guten Tag." : "Guten Abend.") + " Wie kann ich helfen?";
+  };
+  const today = () => new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const STARTERS = ["Was koche ich heute?", "Erklär mir etwas Spannendes", "Hilf mir, eine Nachricht zu formulieren"];
 
   const STATUS = { idle: "Bereit", listening: "Höre zu", thinking: "Denke nach", speaking: "Antwortet" };
 
@@ -599,15 +677,17 @@
   const isBusy = () => state === "thinking" || state === "speaking";
   function updateSend() { ui.send.disabled = !isBusy() && ui.input.value.trim() === ""; }
   function fitInput() { ui.input.style.height = "auto"; ui.input.style.height = Math.min(ui.input.scrollHeight, 176) + "px"; }
-  function setInput(v) { ui.input.value = v; fitInput(); updateSend(); }
+  function setInput(v) { ui.input.value = v; fitInput(); updateSend(); ui.hint.classList.toggle("show", document.activeElement === ui.input && !v); }
 
   function showError(msg) {
     ui.error.textContent = msg || "";
     ui.error.classList.toggle("show", !!msg);
   }
 
+  let live = "";   // the reply as written (may contain Markdown)
   function renderReply(text, fresh) {
-    ui.reply.textContent = text;
+    live = text;
+    ui.reply.textContent = plain(text);
     if (fresh) { ui.reply.classList.remove("fresh"); void ui.reply.offsetWidth; ui.reply.classList.add("fresh"); }
     ui.reply.scrollTop = ui.reply.scrollHeight;
     renderThread(text, fresh);
@@ -618,22 +698,52 @@
     if (cfg.mode !== "chat") return;
     const th = ui.thread;
     const stick = jump || th.scrollHeight - th.scrollTop - th.clientHeight < 40;
-    const list = messages.length ? messages.slice() : [{ role: "assistant", content: greeting }];
+    const list = messages.length ? messages.slice() : [{ role: "assistant", content: greeting() }];
     if (pending != null && messages.length && messages[messages.length - 1].role === "user") list.push({ role: "assistant", content: pending });
-    th.replaceChildren(...list.map((m) => {
+    th.replaceChildren(...list.map((m, i) => {
       const d = document.createElement("div");
       d.className = "msg " + (m.role === "user" ? "me" : "ai");
-      d.textContent = m.content;
+      if (m.role === "user") { d.textContent = m.content; return d; }
+      const body = document.createElement("div"); body.className = "md"; body.innerHTML = md(m.content);
+      d.append(body);
+      if (i < messages.length) d.append(msgActions(m.content, i === messages.length - 1));   // saved replies only
       return d;
     }));
     if (stick) th.scrollTop = th.scrollHeight;
+  }
+  const ICON = {
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    speak: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
+    again: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
+  };
+  const svg = (p) => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
+  function msgActions(text, isLast) {
+    const bar = document.createElement("div"); bar.className = "acts";
+    const btn = (label, icon, fn) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "act press";
+      b.title = label; b.setAttribute("aria-label", label); b.innerHTML = svg(icon);
+      b.addEventListener("click", () => fn(b)); bar.append(b);
+    };
+    btn("Kopieren", ICON.copy, async (b) => {
+      try { await navigator.clipboard.writeText(text); b.innerHTML = svg(ICON.check); setTimeout(() => { b.innerHTML = svg(ICON.copy); }, 1200); } catch {}
+    });
+    btn("Vorlesen", ICON.speak, () => { stopSpeaking(); speakChunk(text, true); });
+    if (isLast) btn("Neu generieren", ICON.again, regenerate);
+    return bar;
+  }
+  function regenerate() {
+    if (isBusy() || messages.length < 2 || messages[messages.length - 1].role !== "assistant") return;
+    messages.pop();
+    const q = messages.pop();
+    send(q.content);
   }
   function setMode(m) {
     save("mode", m);
     document.body.classList.toggle("chat", m === "chat");
     ui.modeBtn.setAttribute("aria-pressed", String(m === "chat"));
     ui.modeBtn.title = m === "chat" ? "Kugel-Ansicht" : "Chat-Ansicht";
-    renderThread(isBusy() ? ui.reply.textContent : null, true);
+    renderThread(isBusy() ? live : null, true);
   }
 
   function renderPill() {
@@ -665,7 +775,7 @@
   async function* streamOllama(history, signal) {
     const body = (think) => JSON.stringify({
       model: cfg.ollamaModel, stream: true,
-      messages: [{ role: "system", content: systemPrompt }, ...history],
+      messages: [{ role: "system", content: systemPrompt() }, ...history],
       ...(think === undefined ? {} : { think }),
     });
     let res;
@@ -699,7 +809,7 @@
       res = await fetch(ROUTER + "/chat/completions", {
         method: "POST", signal,
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.routerKey, "X-Title": "Jarvis" },
-        body: JSON.stringify({ model: cfg.routerModel, stream: true, messages: [{ role: "system", content: systemPrompt }, ...history] }),
+        body: JSON.stringify({ model: cfg.routerModel, stream: true, messages: [{ role: "system", content: systemPrompt() }, ...history] }),
       });
     } catch (e) {
       if (e.name === "AbortError") throw e;
@@ -734,7 +844,7 @@
     setInput("");
     showError("");
     messages.push({ role: "user", content: text });
-    ui.said.textContent = text;
+    renderSaid();
     renderReply("…", true);
     setState("thinking");
 
@@ -761,8 +871,8 @@
       } else {
         messages.pop();                        // drop the failed turn, give the text back
         setInput(text);
-        ui.said.textContent = messages.length ? lastOf("user") : "";
-        renderReply(lastOf("assistant") || greeting, true);
+        renderSaid();
+        renderReply(lastOf("assistant") || greeting(), true);
         showError(e.message);
       }
     } finally {
@@ -775,7 +885,10 @@
   function stop() { if (controller) controller.abort(); stopSpeaking(); }
 
   ui.form.addEventListener("submit", (e) => { e.preventDefault(); isBusy() ? stop() : send(); });
-  ui.input.addEventListener("input", () => { fitInput(); updateSend(); });
+  ui.input.addEventListener("input", () => { fitInput(); updateSend(); showHint(); });
+  const showHint = () => ui.hint.classList.toggle("show", document.activeElement === ui.input && !ui.input.value);
+  ui.input.addEventListener("focus", showHint);
+  ui.input.addEventListener("blur", showHint);
   // Enter sends, Shift+Enter starts a new line (not while an IME is composing)
   ui.input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ui.form.requestSubmit(); }
@@ -799,9 +912,16 @@
     persistChats();
     renderChats();
   }
+  // empty chat: today's date above the greeting and a few starters; otherwise the last question
+  function renderSaid() {
+    const empty = !messages.length;
+    ui.said.classList.toggle("date", empty);
+    ui.said.textContent = empty ? today() : lastOf("user");
+    ui.starters.hidden = !empty;
+  }
   function showConversation() {
-    ui.said.textContent = lastOf("user");
-    renderReply(lastOf("assistant") || greeting, true);
+    renderSaid();
+    renderReply(lastOf("assistant") || greeting(), true);
     showError("");
   }
   function openChat(id) {
@@ -824,12 +944,18 @@
       const p = document.createElement("p"); p.className = "note"; p.textContent = "Noch keine Gespräche.";
       ui.chatList.replaceChildren(p); return;
     }
+    const q = ui.chatSearch.value.trim().toLowerCase();
+    const shown = q ? chats.filter((c) => c.title.toLowerCase().includes(q) || c.messages.some((m) => m.content.toLowerCase().includes(q))) : chats;
+    if (!shown.length) {
+      const p = document.createElement("p"); p.className = "note"; p.textContent = "Nichts gefunden.";
+      ui.chatList.replaceChildren(p); return;
+    }
     const day = 864e5, today = new Date().setHours(0, 0, 0, 0);
     const group = (t) => (t >= today ? "Heute" : t >= today - day ? "Gestern" : t >= today - 7 * day ? "Letzte 7 Tage"
       : t >= today - 30 * day ? "Letzte 30 Tage" : "Älter");
     const out = [];
     let last = "";
-    for (const c of chats) {
+    for (const c of shown) {
       const g = group(c.updated);
       if (g !== last) { const h = document.createElement("div"); h.className = "group"; h.textContent = g; out.push(h); last = g; }
       const row = document.createElement("div"); row.className = "chat-row";
@@ -860,6 +986,7 @@
     ui.menuBtn.setAttribute("aria-expanded", "false");
   }
   ui.menuBtn.addEventListener("click", openSide);
+  ui.chatSearch.addEventListener("input", renderChats);
   ui.sideNew.addEventListener("click", () => { newChat(); closeSide(); if (!matchMedia("(pointer: coarse)").matches) ui.input.focus(); });
   ui.reloadBtn.addEventListener("click", () => location.reload());
 
@@ -920,7 +1047,7 @@
 
   function speakChunk(text, force) {
     if ((!cfg.speak && !force) || !canSpeak || !text.trim()) return;
-    const u = new SpeechSynthesisUtterance(text.trim());
+    const u = new SpeechSynthesisUtterance(plain(text).replace(/•/g, "").trim());
     u.lang = "de-DE";
     const v = pickVoice(); if (v) u.voice = v;
     u.rate = 1.05;
@@ -1221,7 +1348,7 @@
   { const t = spring(0.12); for (let i = 0; i < 20; i++) stepSpring(t, 1, 0.1); console.assert(Math.abs(t.x - 1) < 0.01, "Jarvis: spring unstable"); }
   const energyS = spring(0.45), speedS = spring(0.6), levelS = spring(0.12);
   energyS.x = 0.15; speedS.x = 0.7;
-  let phase = 0, last = performance.now();
+  let phase = 0, last = performance.now(), ambShown = -1;
 
   function blob(cx, cy, r, t, wobble, seed) {
     const n = 120, s = seed * 1.7;
@@ -1255,6 +1382,8 @@
     const shown = STATUS[state === "idle" && talking() ? "speaking" : state];
     if (ui.statusText.textContent !== shown) ui.statusText.textContent = shown;
     const energy = stepSpring(energyS, target[0], dt);
+    const amb = Math.min(1, (cfg.mode === "chat" ? 0.45 : 0.7) + energy * 0.5);
+    if (Math.abs(amb - ambShown) > 0.01) { ambShown = amb; ui.ambient.style.opacity = amb.toFixed(2); }
     const speed = stepSpring(speedS, calm ? 0.25 : target[1], dt);
     phase += dt * speed;
 
@@ -1326,10 +1455,17 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.19";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.20";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.20", date: "2026-11-09", items: [
+      "Die Kugel taucht den Raum in warmes Licht – heller, wenn sie denkt und spricht",
+      "Begrüßung zur Tageszeit, mit Datum und drei Vorschlägen zum Antippen",
+      "Kopfleiste am Fensterrand, Tasten-Hinweise nur noch beim Tippen",
+      "Chat-Ansicht: formatierte Antworten mit Listen und Code, dazu Kopieren, Vorlesen und Neu generieren",
+      "Suche in der Gesprächsliste",
+    ] },
     { v: "1.19", date: "2026-11-09", items: ["Das Eingabefeld behält seine Breite, auch wenn eine lange Antwort kommt"] },
     { v: "1.18", date: "2026-11-09", items: [
       "Modellauswahl und Einstellungen sind getrennt: das Modell oben rechts, die Einstellungen unten in der Seitenleiste",
@@ -1463,7 +1599,12 @@
   renderSpeak();
   setMode(cfg.mode);
   if (cfg.wake && SR) setWake(true);
-  if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else { renderReply(greeting, false); renderChats(); }
+  if (chatId && chats.some((c) => c.id === chatId)) openChat(chatId); else { renderSaid(); renderReply(greeting(), false); renderChats(); }
+  ui.starters.replaceChildren(...STARTERS.map((t) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "starter press"; b.textContent = t;
+    b.addEventListener("click", () => send(t));
+    return b;
+  }));
   setState("idle");
   resize();
   requestAnimationFrame(frame);

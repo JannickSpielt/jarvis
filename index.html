@@ -53,6 +53,7 @@
     height: 100dvh;
     display: grid;
     grid-template-rows: auto 1fr auto;
+    flex: 1; min-width: 0;   /* fixed column width: not sized by the reply text */
     max-width: 680px;
     margin: 0 auto;
     padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
@@ -1325,10 +1326,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.18";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.19";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.19", date: "2026-11-09", items: ["Das Eingabefeld behält seine Breite, auch wenn eine lange Antwort kommt"] },
     { v: "1.18", date: "2026-11-09", items: [
       "Modellauswahl und Einstellungen sind getrennt: das Modell oben rechts, die Einstellungen unten in der Seitenleiste",
       "Chat-Ansicht-Knopf sitzt jetzt links neben dem Modell",

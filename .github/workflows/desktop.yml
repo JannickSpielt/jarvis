@@ -1,0 +1,43 @@
+# Builds the desktop app (Mac .dmg, Windows .exe) when a tag like desktop-v1.14.0 is pushed,
+# and attaches both to a GitHub release.
+name: Desktop app
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --target universal-apple-darwin
+          - os: windows-latest
+            args: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - run: npm ci
+        working-directory: desktop
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Jarvis ${{ github.ref_name }}
+          releaseBody: |
+            Jarvis als Desktop-App.
+            Mac: die .dmg öffnen und Jarvis in den Programme-Ordner ziehen. Windows: die -setup.exe ausführen.
+          releaseDraft: false
+          args: ${{ matrix.args }}

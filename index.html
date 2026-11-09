@@ -272,6 +272,9 @@
   }
   .settings.open { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
   .settings h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin-bottom: 16px; }
+  .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 10px; background: var(--side); box-shadow: inset 0 0 0 1px var(--line); }
+  .choice button { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-3); transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+  .choice button[aria-checked="true"] { background: var(--raised); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
   .toggles { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
   .toggle {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -543,6 +546,12 @@
     <p class="note">Laufen kostenlos und privat auf diesem Computer. Jarvis erkennt sie von selbst, sobald sie gestartet sind.</p>
   </div>
 
+  <label class="field" style="margin-top:24px">Kugel</label>
+  <div class="choice" role="radiogroup" aria-label="Aussehen der Kugel">
+    <button type="button" role="radio" data-orb="glow" aria-checked="true">Glut</button>
+    <button type="button" role="radio" data-orb="fur" aria-checked="false">Fell</button>
+  </div>
+
   <label class="field" style="margin-top:24px">Sprache</label>
   <div class="toggles">
     <button type="button" class="toggle" id="wakeBtn" role="switch" aria-checked="false"><span>Auf „Hey Jarvis“ reagieren</span><i></i></button>
@@ -579,6 +588,7 @@
     speak: store.get("speak", "1") === "1",
     wake: store.get("wake", "0") === "1",
     mode: store.get("mode", "orb"),     // "orb" | "chat"
+    orb: store.get("orb", "glow"),      // "glow" | "fur"
     voice: store.get("voice", ""),
   };
   const save = (k, v) => { cfg[k] = v; store.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v); renderPill(); };
@@ -1264,6 +1274,10 @@
     if (!SR) { showError("„Hey Jarvis“ braucht Spracherkennung im Browser. Nimm Chrome, Edge oder Safari."); return; }
     setWake(!cfg.wake);
   });
+  const orbButtons = document.querySelectorAll("[data-orb]");
+  const renderOrbChoice = () => orbButtons.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.orb === cfg.orb)));
+  orbButtons.forEach((b) => b.addEventListener("click", () => { save("orb", b.dataset.orb); renderOrbChoice(); }));
+  renderOrbChoice();
   ui.modeBtn.addEventListener("click", () => setMode(cfg.mode === "chat" ? "orb" : "chat"));
   ui.speakBtn.addEventListener("click", () => {
     save("speak", !cfg.speak);
@@ -1499,6 +1513,61 @@
   const rgba = (rgb, a) => `rgba(${rgb},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
   const C = { core: "255,227,194", orange: "255,138,61", ember: "227,87,15", deep: "153,51,16" };
 
+  // ---------- fur ball: many single hairs, lit from the top left, puffing up while it listens or speaks ----------
+  const FUR_COLORS = ["#4a1806", "#73290b", "#9c3d13", "#c4561d", "#e2742f", "#f6984f", "#ffbf80", "#ffe0bd"];
+  const FUR = FUR_COLORS.map(() => []);
+  {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 3200; i++) {
+      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());          // root anywhere on the ball
+      const x = Math.cos(a) * d, y = Math.sin(a) * d;
+      const light = 0.5 - 0.4 * (x * 0.7 + y * 0.75) + 0.15 * (1 - d) + (rnd() - 0.5) * 0.35;
+      const b = Math.max(0, Math.min(FUR_COLORS.length - 1, Math.floor(light * FUR_COLORS.length)));
+      // hairs facing the viewer look short and point every which way; hairs at the rim lie long and outward
+      const dir = a + (rnd() - 0.5) * (1.2 + 2.6 * (1 - d));
+      const len = (0.16 + rnd() * 0.24) * (0.3 + 0.7 * d);
+      FUR[b].push({ i, a, d, dir, len, ph: rnd() * Math.PI * 2, curl: (rnd() - 0.5) * 1.8 });
+    }
+  }
+  function drawFur(cx, cy, r, t, energy, level, calm) {
+    // soft shadow and a body underneath, so gaps between hairs never show the background
+    ctx.save(); ctx.translate(cx, cy + r * 1.2); ctx.scale(1, 0.22);
+    const sh = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.1);
+    sh.addColorStop(0, "rgba(0,0,0,0.45)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sh; ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, 0, cx, cy, r);
+    body.addColorStop(0, "#d9702c"); body.addColorStop(1, "#4a1806");
+    ctx.fillStyle = body; ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.fill();
+
+    // soft fuzzy silhouette, so the edge reads as fluff, not as a hard line
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.3);
+    halo.addColorStop(0, "rgba(226,116,47,0.35)"); halo.addColorStop(1, "rgba(226,116,47,0)");
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.3, 0, Math.PI * 2); ctx.fill();
+
+    const n = Math.max(700, Math.min(3200, Math.round(r * 24)));     // fewer hairs on a small ball
+    const puff = 1 + energy * 0.45 + level * 0.35;
+    const sway = calm ? 0 : 0.1 + energy * 0.12;
+    ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(0.6, r / 150);
+    for (let b = 0; b < FUR.length; b++) {
+      ctx.strokeStyle = FUR_COLORS[b];
+      ctx.globalAlpha = 0.85 - b * 0.04;
+      ctx.beginPath();
+      for (const h of FUR[b]) {
+        if (h.i >= n) continue;
+        const rx = cx + Math.cos(h.a) * h.d * r * 0.9, ry = cy + Math.sin(h.a) * h.d * r * 0.9;
+        const ang = h.dir + Math.sin(t * 1.6 + h.ph) * sway;
+        const L = r * h.len * puff;
+        const tx = rx + Math.cos(ang) * L, ty = ry + Math.sin(ang) * L + L * 0.08;   // a touch of gravity
+        const mx = (rx + tx) / 2 - Math.sin(ang) * h.curl * L * 0.35, my = (ry + ty) / 2 + Math.cos(ang) * h.curl * L * 0.35;
+        ctx.moveTo(rx, ry); ctx.quadraticCurveTo(mx, my, tx, ty);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const calm = reduceMotion.matches;
@@ -1516,7 +1585,7 @@
     const shown = STATUS[state === "idle" && talking() ? "speaking" : state];
     if (ui.statusText.textContent !== shown) ui.statusText.textContent = shown;
     const energy = stepSpring(energyS, target[0], dt);
-    const amb = Math.min(1, (cfg.mode === "chat" ? 0.45 : 0.7) + energy * 0.5);
+    const amb = Math.min(1, ((cfg.mode === "chat" ? 0.45 : 0.7) + energy * 0.5) * (cfg.orb === "fur" ? 0.45 : 1));
     if (Math.abs(amb - ambShown) > 0.01) { ambShown = amb; ui.ambient.style.opacity = amb.toFixed(2); }
     const speed = stepSpring(speedS, calm ? 0.25 : target[1], dt);
     phase += dt * speed;
@@ -1526,6 +1595,8 @@
     const base = Math.min(W, H) * 0.27;
     const r = base * (1 + (calm ? 0 : 0.035 * Math.sin(t * 1.3)) + energy * 0.12);
     const p = phase;
+
+    if (cfg.orb === "fur") { drawFur(cx, cy, r, t, energy, level, calm); requestAnimationFrame(frame); return; }
 
     // glow
     for (let i = 0; i < 3; i++) {
@@ -1589,10 +1660,11 @@
   }
 
   // ---------- updates: an installed app can keep an old copy; reload once a newer one is online ----------
-  const VERSION = "1.21";   // bump on every release, together with a new CHANGELOG entry
+  const VERSION = "1.22";   // bump on every release, together with a new CHANGELOG entry
 
   // ---------- changelog ----------
   const CHANGELOG = [
+    { v: "1.22", date: "2026-11-09", items: ["Einstellungen › Kugel: neben der Glut gibt es jetzt eine flauschige Fellkugel, die sich beim Zuhören und Sprechen aufplustert"] },
     { v: "1.21", date: "2026-11-09", items: [
       "Viele Anbieter: Requesty, Vercel AI Gateway, Eden AI, Hugging Face, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek und xAI – jeweils mit eigenem Key",
       "Lokale Programme neben Ollama: LM Studio, Jan, llama.cpp, vLLM und LocalAI – Jarvis erkennt sie von selbst",
